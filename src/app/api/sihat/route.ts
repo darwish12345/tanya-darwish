@@ -2,7 +2,7 @@
  * SEMAKAN KESIHATAN: GET /api/sihat
  * Semak setiap bahagian sistem dan berapa lama ia ambil. Tiada rahsia didedahkan.
  */
-import { bacaJSON, tulisJSON, jenisStoran } from "@/lib/store";
+import { bacaJSON, tulisJSON, jenisStoran, modKonsistensi, sebabEventual } from "@/lib/store";
 import { bacaStatus } from "@/lib/data";
 import { klien, MODEL } from "@/lib/agent/loop";
 import { semakBot, ralatTelegramTerakhir, tokenBot } from "@/lib/telegram";
@@ -46,7 +46,7 @@ export async function GET() {
       TELEGRAM_CHAT_ID: Boolean(process.env.TELEGRAM_CHAT_ID),
       AGENT_SECRET: (process.env.AGENT_SECRET?.length ?? 0) >= 16,
     },
-    storan: { jenis: jenisStoran(), konteksBlobs: Boolean((globalThis as { netlifyBlobsContext?: unknown }).netlifyBlobsContext || process.env.NETLIFY_BLOBS_CONTEXT), ...storan },
+    storan: { jenis: jenisStoran(), konteksBlobs: Boolean((globalThis as { netlifyBlobsContext?: unknown }).netlifyBlobsContext || process.env.NETLIFY_BLOBS_CONTEXT), ...storan, mod: modKonsistensi, sebabEventual },
     groq,
     telegram: {
       ...telegram,

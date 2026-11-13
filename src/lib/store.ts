@@ -46,14 +46,39 @@ function denganHadMasa<T>(janji: Promise<T>, ms: number, label: string): Promise
 
 const HAD_MASA_MS = 4000;
 
+/**
+ * Mod "strong": data baru terus boleh dibaca (penting untuk sejarah chat & senarai).
+ * Mod "eventual": data baru mungkin ambil masa sehingga ~60 saat untuk kelihatan.
+ * Kita cuba strong dahulu; jika persekitaran tidak menyokongnya, guna eventual dan laporkan di /api/sihat.
+ */
+export let modKonsistensi: "strong" | "eventual" | "belum diuji" = "belum diuji";
+export let sebabEventual: string | null = null;
+
 function storanNetlify(): Storan {
-  const store = getStore({ name: NAMA_STORE });
+  const strong = getStore({ name: NAMA_STORE, consistency: "strong" });
+  const biasa = getStore({ name: NAMA_STORE });
+
+  async function cuba<T>(op: (s: typeof strong) => Promise<T>, label: string): Promise<T> {
+    if (modKonsistensi !== "eventual") {
+      try {
+        const hasil = await denganHadMasa(op(strong), 2500, `${label} (strong)`);
+        modKonsistensi = "strong";
+        return hasil;
+      } catch (e) {
+        sebabEventual = e instanceof Error ? e.message : String(e);
+        console.error("[store] Mod strong gagal, guna eventual:", sebabEventual);
+        modKonsistensi = "eventual";
+      }
+    }
+    return denganHadMasa(op(biasa), HAD_MASA_MS, label);
+  }
+
   return {
     async baca<T>(k: string) {
-      return (await denganHadMasa(store.get(k, { type: "json" }), HAD_MASA_MS, `baca ${k}`)) as T | null;
+      return (await cuba((s) => s.get(k, { type: "json" }), `baca ${k}`)) as T | null;
     },
     async tulis(k: string, data: unknown) {
-      await denganHadMasa(store.setJSON(k, data), HAD_MASA_MS, `tulis ${k}`);
+      await cuba((s) => s.setJSON(k, data), `tulis ${k}`);
     },
   };
 }
