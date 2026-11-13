@@ -2,10 +2,14 @@
 [build]
   command = "npm run build"
 
-# Imbasan rahsia Netlify tersalah "jumpa" token Upstash dalam fail binari (amaran palsu).
-# Kita abaikan KUNCI ini sahaja; imbasan untuk rahsia lain kekal aktif.
+# Imbasan rahsia Netlify memeriksa NILAI setiap env var dalam kod. Beberapa nilai bukan rahsia
+# tetapi memang muncul dalam kod (amaran palsu):
+#   UPSTASH_REDIS_REST_TOKEN  dikesan dalam fail binari cache build
+#   JSEARCH_PROVIDER          nilainya "openwebninja" (nama pembekal, ada dalam jsearch.ts)
+#   QSTASH_URL                nilainya URL awam QStash (nilai lalai dalam qstash.ts)
+# Kita abaikan KUNCI ini sahaja; imbasan untuk rahsia sebenar (token, kata laluan) kekal aktif.
 [build.environment]
-  SECRETS_SCAN_OMIT_KEYS = "UPSTASH_REDIS_REST_TOKEN"
+  SECRETS_SCAN_OMIT_KEYS = "UPSTASH_REDIS_REST_TOKEN,JSEARCH_PROVIDER,QSTASH_URL"
 
 # Pastikan fail pengetahuan agent (content/) dibawa bersama ke server
 [functions]
