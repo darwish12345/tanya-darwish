@@ -1,0 +1,56 @@
+# EVAL: jalankan agent SEBENAR (Groq) terhadap evals/kes.json dan simpan skor ke repo.
+# - Manual (Actions → Eval → Run workflow), atau automatik 1hb setiap bulan (agent web sahaja).
+# - Had percuma Groq untuk gpt-oss-120b: 8K token/minit, 200K token/hari, dikongsi dengan agent
+#   sebenar. Satu larian web ≈ separuh had harian, jadi web & peribadi dijalankan pada hari berbeza.
+# - Perlu rahsia repo: GROQ_API_KEY (Settings → Secrets and variables → Actions).
+# - Commit hasil dengan [skip netlify] supaya TIDAK mencetuskan deploy Netlify (jimat kredit).
+#   Skor baru dipaparkan di /statistik pada deploy seterusnya.
+name: Eval
+
+on:
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: "Agent untuk dinilai"
+        type: choice
+        options: [web, peribadi, semua]
+        default: web
+  schedule:
+    - cron: "17 19 1 * *" # 1hb setiap bulan, 3:17 pagi waktu Malaysia → agent web
+
+permissions:
+  contents: write
+
+concurrency:
+  group: eval
+  cancel-in-progress: false
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Pilih agent
+        id: pilih
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then A="${{ inputs.agent }}";
+          else A="web"; fi
+          if [ "$A" = "semua" ]; then echo "args=" >> "$GITHUB_OUTPUT"; else echo "args=--agent $A" >> "$GITHUB_OUTPUT"; fi
+      - name: Jalankan eval
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          EVAL_JEDA_MS: "20000" # jarakkan kes supaya tidak melepasi 8K token/minit
+        run: npm run eval -- ${{ steps.pilih.outputs.args }}
+      - name: Simpan keputusan
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add evals/
+          git diff --cached --quiet || git commit -m "eval: kemas kini skor [skip netlify] [skip ci]"
+          git push

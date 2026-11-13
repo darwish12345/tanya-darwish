@@ -14,7 +14,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import MiniSearch from "minisearch";
-import { senaraiProjek } from "@/lib/projects";
+import { senaraiProjek, type Projek } from "@/lib/projects";
+import { bacaPengetahuan } from "@/lib/data";
+import { bacaProjekGitHub, bacaRepoTersembunyi } from "@/lib/github";
 
 export type Ketul = {
   id: string;
@@ -58,8 +60,12 @@ function bacaSemuaKetul(): Ketul[] {
     pecahMarkdown(f, fs.readFileSync(path.join(CONTENT_DIR, f), "utf8")),
   );
 
-  // Setiap projek juga dijadikan satu ketul supaya boleh dicari
-  const ketulProjek: Ketul[] = senaraiProjek().map((p) => ({
+  return [...ketulMd, ...senaraiProjek().map(ketulDariProjek)];
+}
+
+/** Setiap projek dijadikan satu ketul supaya boleh dicari. */
+function ketulDariProjek(p: Projek): Ketul {
+  return {
     id: `projek#${p.id}`,
     sumber: `projek:${p.id}`,
     tajuk: p.nama,
@@ -74,24 +80,52 @@ function bacaSemuaKetul(): Ketul[] {
     ]
       .filter(Boolean)
       .join("\n"),
-  }));
-
-  return [...ketulMd, ...ketulProjek];
+  };
 }
 
-// Indeks dibina sekali dan disimpan dalam memori (cache)
-let indeks: MiniSearch<Ketul> | null = null;
-let semuaKetul: Ketul[] = [];
+/**
+ * Ketul DINAMIK: pengetahuan yang ditambah melalui Telegram / import CV, dan repo GitHub.
+ * Dibaca dari storan dengan cache 60 saat supaya setiap soalan tidak memanggil database.
+ */
+let cacheDinamik: { masa: number; ketul: Ketul[] } | null = null;
+async function ketulDinamik(): Promise<Ketul[]> {
+  if (cacheDinamik && Date.now() - cacheDinamik.masa < 60_000) return cacheDinamik.ketul;
+  let ketul: Ketul[] = [];
+  try {
+    const [pengetahuan, github, sembunyi] = await Promise.all([bacaPengetahuan(), bacaProjekGitHub(), bacaRepoTersembunyi()]);
+    ketul = [
+      ...pengetahuan.map((p) => ({ id: `tambahan#${p.id}`, sumber: `tambahan:${p.sumber}`, tajuk: p.tajuk, teks: p.teks })),
+      ...github.filter((g) => !sembunyi.includes(g.id)).map(ketulDariProjek),
+    ];
+  } catch (e) {
+    console.error("[knowledge] Gagal baca pengetahuan dinamik:", e);
+  }
+  cacheDinamik = { masa: Date.now(), ketul };
+  return ketul;
+}
 
-function dapatkanIndeks() {
-  if (!indeks) {
-    semuaKetul = bacaSemuaKetul();
-    indeks = new MiniSearch<Ketul>({
+/** Kosongkan cache (contoh selepas Darwish menambah pengetahuan baru). */
+export function kosongkanCachePengetahuan() {
+  cacheDinamik = null;
+}
+
+let ketulStatik: Ketul[] | null = null;
+let indeks: { kunci: string; mini: MiniSearch<Ketul>; jumlah: number } | null = null;
+
+async function dapatkanIndeks() {
+  ketulStatik ??= bacaSemuaKetul();
+  const dinamik = await ketulDinamik();
+  const kunci = `${ketulStatik.length}:${dinamik.map((k) => k.id).join(",")}`;
+  if (!indeks || indeks.kunci !== kunci) {
+    const mini = new MiniSearch<Ketul>({
       fields: ["tajuk", "teks"],
       storeFields: ["sumber", "tajuk", "teks"],
       searchOptions: { boost: { tajuk: 2 }, fuzzy: 0.2, prefix: true },
     });
-    indeks.addAll(semuaKetul);
+    const semua = [...ketulStatik, ...dinamik];
+    // Elak id berganda (contoh projek yang wujud dalam fail & GitHub)
+    mini.addAll([...new Map(semua.map((k) => [k.id, k])).values()]);
+    indeks = { kunci, mini, jumlah: mini.documentCount };
   }
   return indeks;
 }
@@ -123,8 +157,8 @@ function kembangkanSoalan(soalan: string): string {
 }
 
 /** Cari ketul paling relevan untuk satu soalan. */
-export function cariPengetahuan(soalan: string, had = 4): Ketul[] {
-  const hasil = dapatkanIndeks().search(kembangkanSoalan(soalan), { combineWith: "OR" });
+export async function cariPengetahuan(soalan: string, had = 4): Promise<Ketul[]> {
+  const hasil = (await dapatkanIndeks()).mini.search(kembangkanSoalan(soalan), { combineWith: "OR" });
   return hasil.slice(0, had).map((h) => ({
     id: String(h.id),
     sumber: h.sumber as string,
@@ -134,7 +168,6 @@ export function cariPengetahuan(soalan: string, had = 4): Ketul[] {
 }
 
 /** Untuk debug: berapa banyak ketul dalam pangkalan pengetahuan. */
-export function statistik() {
-  dapatkanIndeks();
-  return { jumlahKetul: semuaKetul.length };
+export async function statistik() {
+  return { jumlahKetul: (await dapatkanIndeks()).jumlah };
 }

@@ -18,6 +18,8 @@ import { SYSTEM_PROMPT } from "./prompt";
 import { TOOLS } from "./tools";
 import { keDefinisi, jalankanToolDari, type SebarangTool } from "./rangka";
 import type { KadProjek } from "@/lib/projects";
+import { bersihkanOutput } from "@/lib/teks";
+import type { Papan } from "@/lib/telegram";
 
 export const MAKS_PUSINGAN = 5;
 export const MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
@@ -41,6 +43,7 @@ export function klien(): KlienLLM {
 // ─────────────────────────────────────────────────────────────────────────────
 export type HasilGelung = {
   teks: string;
+  papan: Papan;
   kad: KadProjek[];
   langkah: Langkah[];
   tiadaHasil: boolean; // ada carian yang tidak jumpa apa-apa
@@ -58,21 +61,42 @@ export async function jalankanGelung(opsyen: {
   const messages: ChatCompletionMessageParam[] = [{ role: "system", content: systemPrompt }, ...sejarah];
   const langkah: Langkah[] = [];
   const kad: KadProjek[] = [];
+  const papan: Papan = [];
   let tiadaHasil = false;
 
+  let pemulihan = 0;
   for (let pusingan = 0; pusingan < MAKS_PUSINGAN; pusingan++) {
     // ── Langkah 1: tanya LLM ───────────────────────────────────────────────
-    const res = await llm.chat.completions.create({
-      model: MODEL,
-      messages,
-      tools: definisi,
-      tool_choice: "auto",
-      temperature: 0.3,
-      // Model gpt-oss "berfikir" dahulu dan token fikiran dikira dalam had ini.
-      // Had yang terlalu rendah boleh menghasilkan jawapan kosong, jadi beri ruang.
-      max_tokens: 2048,
-      ...(MODEL.startsWith("openai/gpt-oss") ? { reasoning_effort: "low" as const } : {}),
-    });
+    let res: Awaited<ReturnType<KlienLLM["chat"]["completions"]["create"]>>;
+    try {
+      res = await llm.chat.completions.create({
+        model: MODEL,
+        messages,
+        tools: definisi,
+        tool_choice: "auto",
+        temperature: 0.3,
+        // Model gpt-oss "berfikir" dahulu dan token fikiran dikira dalam had ini.
+        // Had yang terlalu rendah boleh menghasilkan jawapan kosong, jadi beri ruang.
+        max_tokens: 2048,
+        ...(MODEL.startsWith("openai/gpt-oss") ? { reasoning_effort: "low" as const } : {}),
+      });
+    } catch (e) {
+      // Model kadang-kadang REKA nama tool (contoh "batalkan_peringatan" sedangkan nama sebenar
+      // "batal_peringatan"). API menolak dengan ralat 400 tool_use_failed. Kita beritahu model
+      // nama tool yang sah dan cuba semula (maksimum 2 kali) — agent pulih sendiri.
+      const teksRalat = e instanceof Error ? e.message : String(e);
+      if (pemulihan < 2 && /tool_use_failed|tool call validation failed/i.test(teksRalat)) {
+        pemulihan++;
+        const namaSalah = teksRalat.match(/tool '([^']+)'/)?.[1];
+        messages.push({
+          role: "system",
+          content: `Panggilan tool tadi GAGAL${namaSalah ? `: tool '${namaSalah}' tidak wujud` : " kerana format salah"}. Guna HANYA nama tool ini (ejaan tepat): ${tools.map((t) => t.nama).join(", ")}.`,
+        });
+        pusingan--;
+        continue;
+      }
+      throw e;
+    }
     const mesej = res.choices[0].message;
 
     // Simpan balasan LLM dalam sejarah (termasuk permintaan tool, jika ada)
@@ -87,7 +111,7 @@ export async function jalankanGelung(opsyen: {
       if (!mesej.content?.trim()) {
         console.error("[agent] Jawapan kosong, finish_reason:", res.choices[0].finish_reason);
       }
-      return { teks: mesej.content ?? "", kad, langkah, tiadaHasil, hadDicapai: false };
+      return { teks: mesej.content ?? "", papan, kad, langkah, tiadaHasil, hadDicapai: false };
     }
 
     // ── Langkah 3: jalankan setiap tool yang diminta ──────────────────────
@@ -98,6 +122,7 @@ export async function jalankanGelung(opsyen: {
       const hasil = await jalankanToolDari(tools, name, argumen);
       if (hasil.kad) kad.push(...hasil.kad);
       if (hasil.tiadaHasil) tiadaHasil = true;
+      if (hasil.papan) papan.push(...hasil.papan);
 
       // Hantar hasil tool semula kepada LLM (id mesti sepadan)
       messages.push({ role: "tool", tool_call_id: panggilan.id, content: JSON.stringify(hasil.untukLLM) });
@@ -106,7 +131,7 @@ export async function jalankanGelung(opsyen: {
   }
 
   // Had pusingan dicapai (jarang berlaku): elak gelung tanpa henti
-  return { teks: "", kad, langkah, tiadaHasil, hadDicapai: true };
+  return { teks: "", papan, kad, langkah, tiadaHasil, hadDicapai: true };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -169,7 +194,7 @@ export async function jalankanAgent(sejarah: MesejSejarah[], llm?: KlienLLM): Pr
   }
 
   // Model kadang-kadang tergagap menulis nama ("Dar Darwish"): betulkan
-  const { jawapan, cadangan } = asingkanCadangan(hasil.teks.replace(/\bDar\s+Darwish\b/g, "Darwish"));
+  const { jawapan, cadangan } = asingkanCadangan(bersihkanOutput(hasil.teks).replace(/\bDar\s+Darwish\b/g, "Darwish"));
   // Pelindung: jangan sekali-kali hantar gelembung kosong kepada pelawat
   const akhir = jawapan || "Maaf, saya tak dapat menyiapkan jawapan tadi. Boleh cuba tanya sekali lagi?";
   return {

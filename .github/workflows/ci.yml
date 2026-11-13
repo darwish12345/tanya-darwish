@@ -1,0 +1,32 @@
+# CI: setiap push & pull request — lint, semakan jenis, ujian (tanpa internet) dan build.
+# Percuma untuk repo awam. Tiada rahsia diperlukan: ujian guna pelayan & LLM palsu.
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  semak:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Semakan jenis (TypeScript)
+        run: npm run typecheck
+      - name: Ujian unit & regresi
+        run: npm test
+      - name: Build
+        run: npm run build

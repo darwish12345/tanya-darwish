@@ -32,3 +32,23 @@ export function senaraiProjek(): Projek[] {
 export function keKad(p: Projek): KadProjek {
   return { id: p.id, nama: p.nama, ringkasan: p.ringkasan, peranan: p.peranan, tech: p.tech, link: p.link };
 }
+
+/**
+ * Semua projek untuk dipaparkan: projek dalam content/projek.json dahulu,
+ * kemudian repo GitHub yang disegerakkan (kecuali yang disembunyikan atau sudah ada).
+ */
+export async function senaraiProjekSemua(): Promise<Projek[]> {
+  const { bacaProjekGitHub, bacaRepoTersembunyi } = await import("@/lib/github");
+  const statik = senaraiProjek();
+  let github: Projek[] = [];
+  try {
+    const sembunyi = new Set(await bacaRepoTersembunyi());
+    const sudahAda = new Set(statik.flatMap((p) => [p.id, p.link.repo.toLowerCase()]));
+    github = (await bacaProjekGitHub()).filter(
+      (p) => !sembunyi.has(p.id) && !sudahAda.has(p.link.repo.toLowerCase()) && !sudahAda.has(p.id.replace(/^gh-/, "")),
+    );
+  } catch (e) {
+    console.error("[projects] Gagal baca projek GitHub:", e);
+  }
+  return [...statik, ...github];
+}

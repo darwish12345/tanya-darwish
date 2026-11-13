@@ -2,9 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
-  // Pastikan folder pengetahuan ikut sekali semasa deploy ke Vercel
+  // Pastikan folder content/ (pengetahuan, projek, resume induk) ikut sekali ke server
   outputFileTracingIncludes: {
-    "/api/chat": ["./content/**/*"],
+    "/api/**/*": ["./content/**/*"],
   },
   partialPrefetching: true,
   turbopack: {

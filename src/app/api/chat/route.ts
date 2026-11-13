@@ -34,7 +34,10 @@ export async function POST(req: Request) {
   const semak = SkemaBadan.safeParse(await req.json().catch(() => null));
   if (!semak.success) return Response.json({ ralat: "Permintaan tidak sah." }, { status: 400 });
 
-  const sejarah = semak.data.messages.slice(-HAD_SEJARAH);
+  // Mesej lama dipendekkan (contoh job description yang ditampal tadi) untuk jimat token
+  const sejarah = semak.data.messages
+    .slice(-HAD_SEJARAH)
+    .map((m, i, semua) => (i < semua.length - 1 ? { ...m, content: m.content.slice(0, 1200) } : m));
   const terakhir = sejarah[sejarah.length - 1];
   if (terakhir.role !== "user") {
     return Response.json({ ralat: "Mesej terakhir mesti daripada pelawat." }, { status: 400 });

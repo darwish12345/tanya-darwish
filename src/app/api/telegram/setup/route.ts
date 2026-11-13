@@ -26,7 +26,7 @@ export async function GET(req: Request) {
     body: JSON.stringify({
       url: webhook,
       secret_token: process.env.AGENT_SECRET?.trim(),
-      allowed_updates: ["message"],
+      allowed_updates: ["message", "callback_query"], // callback_query = tekanan butang
       drop_pending_updates: true,
     }),
   }).then((r) => r.json());
@@ -37,6 +37,11 @@ export async function GET(req: Request) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       commands: [
+        { command: "briefing", description: "Briefing hari ini" },
+        { command: "tugasan", description: "Senarai tugasan" },
+        { command: "peringatan", description: "Peringatan aktif" },
+        { command: "kerja", description: "Cari kerja sekarang" },
+        { command: "permohonan", description: "Status permohonan kerja" },
         { command: "start", description: "Contoh arahan" },
         { command: "reset", description: "Mula perbualan baru" },
       ],

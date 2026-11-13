@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { SOALAN_PEMBUKA } from "@/config/suggestions";
+import { SOALAN_PEMBUKA, type SoalanPembuka } from "@/config/suggestions";
 import type { HasilAgent, Langkah } from "@/lib/agent/loop";
 import type { KadProjek } from "@/lib/projects";
 
@@ -15,9 +15,12 @@ const LABEL_TOOL: Record<string, string> = {
   cari_pengetahuan: "Mencari dalam pengetahuan",
   papar_projek: "Memaparkan projek",
   maklum_darwish: "Menghantar mesej kepada Darwish",
+  nilai_padanan_jawatan: "Menilai padanan jawatan",
+  semak_slot_interview: "Menyemak kalendar Darwish",
+  tempah_interview: "Menempah interview",
 };
 
-const HAD = 500;
+const HAD = 3000;
 
 export default function Chat() {
   const [mesej, setMesej] = useState<Mesej[]>([]);
@@ -25,6 +28,28 @@ export default function Chat() {
   const [sibuk, setSibuk] = useState(false);
   const [ralat, setRalat] = useState<string | null>(null);
   const bawahRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Kotak mesej membesar mengikut isi (sehingga ~8 baris)
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }, [input]);
+
+  function pilihCadangan(c: SoalanPembuka) {
+    if (!c.isi) return hantar(c.soalan);
+    setInput(c.soalan);
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      // Pilih teks placeholder supaya tampalan terus menggantikannya
+      const mula = c.soalan.indexOf("[");
+      if (mula >= 0) el.setSelectionRange(mula, c.soalan.length);
+    });
+  }
 
   useEffect(() => {
     bawahRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -65,7 +90,7 @@ export default function Chat() {
   }
 
   const terakhir = mesej[mesej.length - 1];
-  const cadanganSemasa =
+  const cadanganSemasa: SoalanPembuka[] =
     mesej.length === 0
       ? SOALAN_PEMBUKA
       : terakhir?.role === "assistant"
@@ -94,7 +119,7 @@ export default function Chat() {
         {mesej.map((m, i) =>
           m.role === "user" ? (
             <div key={i} className="flex justify-end">
-              <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-indigo-600 px-4 py-2.5 text-sm text-white">
+              <div className="max-h-60 max-w-[85%] overflow-y-auto whitespace-pre-wrap rounded-2xl rounded-br-sm bg-indigo-600 px-4 py-2.5 text-sm text-white">
                 {m.content}
               </div>
             </div>
@@ -149,7 +174,7 @@ export default function Chat() {
             {cadanganSemasa.map((c) => (
               <button
                 key={c.label}
-                onClick={() => hantar(c.soalan)}
+                onClick={() => pilihCadangan(c)}
                 className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs text-indigo-700 transition hover:bg-indigo-100 dark:border-indigo-900 dark:bg-indigo-950 dark:text-indigo-300"
               >
                 {c.label}
@@ -163,14 +188,24 @@ export default function Chat() {
             e.preventDefault();
             hantar(input);
           }}
-          className="flex items-center gap-2"
+          className="flex items-end gap-2"
         >
-          <input
+          <textarea
+            ref={inputRef}
+            rows={1}
             value={input}
             onChange={(e) => setInput(e.target.value.slice(0, HAD))}
-            placeholder="Tanya tentang Darwish..."
+            onKeyDown={(e) => {
+              // Enter = hantar, Shift+Enter = baris baru
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                hantar(input);
+              }
+            }}
+            placeholder="Tanya tentang Darwish, atau tampal job description..."
+            aria-label="Mesej kepada agent"
             disabled={sibuk}
-            className="flex-1 rounded-xl border border-zinc-300 bg-transparent px-4 py-2.5 text-sm outline-none focus:border-indigo-500 dark:border-zinc-700"
+            className="max-h-[200px] flex-1 resize-none rounded-xl border border-zinc-300 bg-transparent px-4 py-2.5 text-sm leading-relaxed outline-none focus:border-indigo-500 dark:border-zinc-700"
           />
           <button
             type="submit"
@@ -180,6 +215,7 @@ export default function Chat() {
             Hantar
           </button>
         </form>
+        {input.length > HAD * 0.8 && <p className="text-right text-[11px] text-zinc-500">{input.length}/{HAD}</p>}
       </footer>
     </section>
   );

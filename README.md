@@ -1,149 +1,118 @@
-# Tanya Darwish: Portfolio Agent
+# Tanya Darwish: an agentic AI portfolio and personal career agent
 
-Agent AI di laman portfolio yang menjawab soalan recruiter dan kawan tentang kerjaya Darwish, memaparkan kad projek dan menghantar mesej kepada Darwish melalui Telegram.
+[![CI](https://github.com/darwish12345/tanya-darwish/actions/workflows/ci.yml/badge.svg)](https://github.com/darwish12345/tanya-darwish/actions/workflows/ci.yml)
+[![Eval](https://github.com/darwish12345/tanya-darwish/actions/workflows/eval.yml/badge.svg)](https://github.com/darwish12345/tanya-darwish/actions/workflows/eval.yml)
 
-Dibina dengan **Next.js + TypeScript**, LLM percuma dari **Groq**, dan gelung agent yang ditulis sendiri (tanpa framework) supaya setiap langkah boleh difahami.
+**Live:** https://tanya-darwish.netlify.app · **Stats & eval score:** https://tanya-darwish.netlify.app/statistik
 
-## Cara ia berfungsi
+One agent core, two faces:
+
+| | Public portfolio agent (web) | Personal agent (Telegram, owner only) |
+|---|---|---|
+| Who uses it | Recruiters, employers, friends | Darwish |
+| What it does | Answers questions about my work **with evidence** (RAG), shows project cards, scores a pasted job description against my profile, books interviews on my calendar, passes messages to me as smart leads | Reminders (one-off and recurring, exact to the minute), tasks with deadline warnings, morning briefing, daily job search with match scoring, tailored ATS resume + cover letter, sends applications **only after I press "Send"**, watches my inbox for recruiter replies, voice notes, CV/LinkedIn PDF import |
+
+> The code uses Malay identifiers (`peringatan` = reminder, `tugasan` = task, `kerja` = job, `permohonan` = application). The UI and agent answer in Malay or English, following the visitor.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Clients
+    W[Web chat<br/>Next.js]
+    T[Telegram]
+  end
+  subgraph Netlify["Netlify (serverless functions)"]
+    C["/api/chat"]
+    TG["/api/telegram<br/>webhook + buttons"]
+    K["/api/kerja/:job<br/>background jobs"]
+    CR["/api/cron<br/>every 15 min"]
+    L{{"Agent loop<br/>LLM ⇄ tools<br/>max 5 rounds"}}
+  end
+  G[(Groq<br/>gpt-oss-120b<br/>Whisper)]
+  R[(Upstash Redis<br/>memory)]
+  Q[[Upstash QStash<br/>scheduled jobs]]
+  X[JSearch<br/>Indeed/LinkedIn/...]
+  GM[Gmail SMTP/IMAP]
+  GC[Google Calendar]
+  GH[GitHub API]
+
+  W --> C --> L
+  T --> TG --> L
+  L <--> G
+  L <--> R
+  TG -- "long work" --> Q --> K
+  CR --> K
+  K --> X & GM & GC & GH
+  K -- "digests, PDFs, buttons" --> T
+```
+
+**How one answer is produced** (`src/lib/agent/loop.ts`): the LLM receives the conversation plus tool definitions (zod schemas converted to JSON Schema) → it either answers or requests tools → the code validates the arguments and runs them → results go back to the LLM → repeat (max 5 rounds). If the model invents a tool name (Groq returns `400 tool_use_failed`), the loop tells it the valid names and retries; it recovers on its own.
+
+## Engineering decisions
+
+| Decision | Why |
+|---|---|
+| **Hand-written agent loop** instead of LangChain/LangGraph | ~150 lines I fully understand and can test with a mock LLM. Every step is visible (tool labels in the UI). |
+| **Serverless + queue** (Netlify + QStash) instead of FastAPI + Celery + Redis worker | Zero idle cost, nothing to keep running. QStash calls back into `/api/kerja/:job` at an exact time (reminders) or fans out work (one job search per role, then scoring after 90 s) so no function hits a timeout. Jobs are idempotent: QStash and the cron backup can both fire without double-sending. |
+| **Lexical RAG** (MiniSearch + Malay/English synonym map) instead of a vector DB | The corpus is small and factual. Keyword search with synonyms is deterministic, free, and handles "certifications" → `sijil`. Knowledge added via Telegram or synced from GitHub is searchable within 60 s. |
+| **Anti-fabrication resume generation** | The LLM never writes resume bullets. It selects skills and bullet **indices** from the master resume; code validates every index and drops anything not in the master (`sahkanDraf`, tested). |
+| **Human in the loop for anything irreversible** | Applications are emailed only from the Telegram "Send" button. Agent status messages are honest: `sent` / `saved` / `failed`. |
+| **Dated instructions vs permanent preferences** | "Tomorrow skip LinkedIn" is stored for that date only; "from now on Indeed only" changes the preference. This came from a real bug where a one-day instruction became permanent; there is now a regression test and an eval case. |
+| **Time is computed in code, not by the LLM** | "In 5 minutes" → the model passes `selepas_minit: 5`; code computes Malaysia time (UTC+8). Another real bug turned into a test. |
+
+## Quality
+
+- **Guardrails:** per-IP rate limit, input length limits, prompt-injection rules (tool results are data, not instructions), output sanitiser (zero-width characters, runaway repetition), owner-only Telegram, secret-token webhooks.
+- **Tests (no network):** `npm test` runs the web agent, personal agent and career pipeline against a fake Telegram server, a fake JSearch server and a scripted LLM. They include regression tests for each bug found in real use.
+- **Evals (real LLM):** `evals/kes.json` holds 56 cases across facts, honesty/anti-fabrication, language, security, off-topic, leads, job-match, booking, reminders, tasks and dated instructions. Checks cover which tools were called, regexes on the answer, reply language, and **the resulting state** (e.g. was the reminder stored for exactly 07:00 tomorrow?). They run in GitHub Actions and the score is shown on [/statistik](https://tanya-darwish.netlify.app/statistik). Latest report: [`evals/laporan-terkini.md`](evals/laporan-terkini.md).
+- **CI:** lint, typecheck, tests and build on every push.
+
+## Cost: RM0 / month
+
+| Service | Free tier used |
+|---|---|
+| Netlify | Hosting + functions (Free plan, hard credit cap, no card) |
+| Groq | gpt-oss-120b: 30 req/min, 8K tokens/min, 200K tokens/day; Whisper for voice notes |
+| Upstash Redis | 500K commands/month |
+| Upstash QStash | Free daily message quota (≈ 5–20 used per day) |
+| JSearch (RapidAPI Basic) | 200 requests/month (≈ 90 used by the daily search) |
+| Gmail, Google Calendar, GitHub API, Telegram Bot API, GitHub Actions | Free |
+
+## Project structure
 
 ```
-Pelawat ──soalan──▶ /api/chat ──▶ GELUNG AGENT ◀──▶ Groq (LLM)
-                                     │
-                                     ▼ LLM minta tool, kod kita jalankan
-                       ┌─────────────┼──────────────┐
-               cari_pengetahuan  papar_projek  maklum_darwish
-                 (folder content/)  (kad projek)   (Telegram)
+src/
+  app/
+    api/chat/            web agent endpoint
+    api/telegram/        Telegram webhook: text, voice, PDF, buttons
+    api/kerja/[nama]/    background jobs called by QStash
+    api/cron/            15-minute scheduler (briefing, job search, report, inbox, GitHub)
+    api/statistik/       public, anonymous usage stats
+    statistik/           stats page
+  lib/
+    agent/               loop, prompts, web tools, personal tools + router
+    kerjaya/             JSearch client, match scoring, application tracker, PDF resume, approval flow
+    rag/knowledge.ts     search over content/ + knowledge added via Telegram + GitHub repos
+    peringatan.ts        reminders (recurring, idempotent delivery, snooze)
+    kerja.ts             job registry + scheduler
+content/                 profile, certificates, FAQ, projects, master resume (public facts only)
+evals/                   eval cases and latest results
+scripts/                 tests, eval runner, local CLI chat
 ```
 
-1. Pelawat tekan butang soalan atau menaip.
-2. `/api/chat` semak guardrails (had kadar, panjang mesej).
-3. Gelung agent hantar system prompt + senarai tools + mesej kepada LLM.
-4. LLM minta tool (contoh `cari_pengetahuan`). Kod kita jalankan dan hantar hasil semula.
-5. Ulang sehingga LLM beri jawapan akhir (maksimum 5 pusingan).
-6. Jawapan, kad projek dan soalan susulan dipaparkan.
+## Run locally
 
-## Struktur projek
+```bash
+npm install
+cp .env.example .env.local   # at minimum: GROQ_API_KEY
+npm run dev                  # http://localhost:3000
+npm test                     # offline tests
+npm run eval                 # real-LLM evals (needs GROQ_API_KEY)
+```
 
-| Fail | Konsep agentic AI | Apa isinya |
-| --- | --- | --- |
-| `src/lib/agent/loop.ts` | Gelung agent | Jantung sistem. Baca fail ini dahulu. |
-| `src/lib/agent/prompt.ts` | System prompt | Identiti dan peraturan agent |
-| `src/lib/agent/tools.ts` | Tool calling | Definisi dan kod setiap tool |
-| `src/lib/rag/knowledge.ts` | RAG | Pecah fail jadi ketul, cari ketul relevan |
-| `src/lib/guardrails.ts` | Guardrails | Had kadar dan had panjang mesej |
-| `src/app/api/chat/route.ts` | Backend | Endpoint yang dipanggil oleh UI |
-| `src/components/Chat.tsx` | UI | Widget chat, butang soalan, kad projek |
-| `src/config/suggestions.ts` | UX | Butang soalan pembuka |
-| `content/` | Pangkalan pengetahuan | **Maklumat tentang anda: isi di sini** |
-| `scripts/chat.ts` | Debug | Chat dari terminal, nampak setiap tool dipanggil |
-| `scripts/test-agent.ts` | Eval asas | Ujian gelung agent dengan LLM palsu |
+Without Upstash the app stores data in `.data/`. Every optional integration (Telegram, QStash, JSearch, Gmail, Calendar) switches off cleanly when its keys are missing, and `/api/sihat` shows what is configured. Full setup steps (in Malay): [`docs/SETUP.md`](docs/SETUP.md).
 
-## Cara jalankan (kali pertama)
+## Author
 
-Keperluan: [Node.js](https://nodejs.org) versi 20 atau lebih baru.
-
-1. **Dapatkan kunci Groq percuma:** daftar di [console.groq.com](https://console.groq.com), buka *API Keys*, tekan *Create API Key*, dan salin kunci.
-2. **Pasang pakej:**
-   ```bash
-   npm install
-   ```
-3. **Tetapkan kunci:** salin `.env.example` kepada `.env.local`, kemudian isi `GROQ_API_KEY`.
-   ```bash
-   cp .env.example .env.local
-   ```
-4. **Uji gelung agent (tanpa internet):**
-   ```bash
-   npm run test:agent
-   ```
-5. **Chat dari terminal** untuk nampak agent bekerja:
-   ```bash
-   npm run chat
-   ```
-6. **Jalankan laman web:**
-   ```bash
-   npm run dev
-   ```
-   Buka http://localhost:3000
-
-## Isi maklumat anda
-
-Semua pengetahuan agent ada dalam folder `content/`:
-
-- `profil.md`: ringkasan, pendidikan, pengalaman, kemahiran, matlamat
-- `sijil.md`: sijil dengan link pengesahan
-- `faq.md`: jawapan yang anda mahu agent beri
-- `projek.json`: senarai projek untuk kad projek dan carian
-
-Peraturan:
-
-- Satu tajuk `##` = satu topik. Agent mencari ikut bahagian ini.
-- Baris yang bermula dengan `TODO` **tidak dibaca** oleh agent. Gantikan dengan maklumat sebenar.
-- Projek dengan `"draf": true` tidak dipaparkan.
-- Jangan masukkan maklumat sulit syarikat tanpa kebenaran supervisor, atau maklumat peribadi (alamat, IC, nombor telefon).
-
-Selepas mengubah `content/`, mulakan semula `npm run dev`.
-
-## Tambah tool baru
-
-Dalam `src/lib/agent/tools.ts`, cipta tool dengan `buatTool({ nama, penerangan, skema, jalankan })` dan tambah ke senarai `TOOLS`. LLM memilih tool berdasarkan `penerangan`, jadi tulis dengan jelas bila tool itu patut digunakan.
-
-## Notifikasi Telegram (pilihan)
-
-1. Di Telegram, cari **@BotFather**, hantar `/newbot` dan salin token.
-2. Hantar satu mesej kepada bot baru anda.
-3. Buka `https://api.telegram.org/bot<TOKEN>/getUpdates` dan salin nombor `chat.id`.
-4. Isi `TELEGRAM_BOT_TOKEN` dan `TELEGRAM_CHAT_ID` dalam `.env.local`.
-
-Tanpa Telegram, mesej pelawat hanya dicetak di terminal.
-
-## Deploy ke Vercel (percuma)
-
-1. Push projek ke GitHub (fail `.env.local` tidak akan ikut, dan itu betul).
-2. Di [vercel.com](https://vercel.com), *Add New Project* dan pilih repo ini.
-3. Dalam *Environment Variables*, tambah `GROQ_API_KEY` (dan Telegram jika ada).
-4. Tekan *Deploy*.
-
-## Agent peribadi Telegram (Fasa 1)
-
-Bot Telegram yang hanya mendengar arahan Darwish:
-
-- **Peringatan** ikut waktu Malaysia: *"Esok pukul 7 pagi ingatkan saya siap sedia interview"*
-- **Keutamaan carian kerja**: *"Tambah lokasi Kuala Lumpur"*, *"Esok tak perlu cari di LinkedIn"*
-- **Lead pintar**: setiap mesej pelawat laman disimpan + notifikasi Telegram tersusun
-- **Laporan harian** jam 9 malam: soalan pelawat, soalan yang agent gagal jawab, leads, jadual esok
-
-| Fail | Fungsi |
-| --- | --- |
-| `src/lib/agent/peribadi.ts` | Prompt + tools agent peribadi |
-| `src/app/api/telegram/route.ts` | Webhook: Telegram hantar mesej bot ke sini |
-| `src/app/api/telegram/setup/route.ts` | Sambung bot ke webhook (sekali sahaja) |
-| `src/app/api/cron/route.ts` | Dipanggil setiap 5 minit: peringatan & laporan |
-| `src/lib/store.ts` | Memori kekal: Upstash Redis (sandaran: Netlify Blobs; fail `.data/` di laptop) |
-| `src/lib/masa.ts` | Penukaran waktu Malaysia |
-
-### Setup
-
-1. Netlify → *Environment variables*: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `AGENT_SECRET` (huruf + nombor, minimum 16 aksara), `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`. Deploy semula.
-2. Buka sekali: `https://tanya-darwish.netlify.app/api/telegram/setup?kunci=AGENT_SECRET`
-3. Di [cron-job.org](https://cron-job.org) (percuma), cipta cron job setiap 5 minit ke `https://tanya-darwish.netlify.app/api/cron?kunci=AGENT_SECRET`
-4. Hantar `/start` kepada bot anda.
-
-Ujian tanpa internet: `npm run test:peribadi`
-
-## Tukar model
-
-Lalai: `openai/gpt-oss-120b`. Tetapkan `GROQ_MODEL` dalam `.env.local` untuk mencuba model lain yang menyokong tool calling, contohnya `llama-3.3-70b-versatile`. Senarai model dan had percuma terkini ada di console Groq.
-
-## Fasa seterusnya
-
-- [ ] Isi semua `TODO` dalam `content/`
-- [ ] Streaming jawapan (perkataan demi perkataan)
-- [ ] Carian vektor: embedding + Supabase pgvector (ganti `cariPengetahuan`, gelung tidak berubah)
-- [ ] Tools `hantar_cv` dan `tempah_meeting`
-- [ ] Panel admin untuk upload bahan
-- [x] Agent peribadi Telegram, peringatan, lead pintar, laporan harian
-- [ ] Carian kerja harian (JSearch) + penilai padanan jawatan
-- [ ] Resume ATS + cover letter, draf diluluskan melalui Telegram, hantar melalui Gmail
-- [ ] Tempah interview (Google Calendar) melalui web & Telegram
-- [ ] Had kadar kekal
-- [ ] Set eval 40 soalan
+Muhammad Darwish · Software Engineering intern · [GitHub](https://github.com/darwish12345) · [Live agent](https://tanya-darwish.netlify.app)

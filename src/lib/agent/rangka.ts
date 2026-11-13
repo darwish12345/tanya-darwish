@@ -4,11 +4,13 @@
 import { z } from "zod";
 import type { ChatCompletionTool } from "groq-sdk/resources/chat/completions";
 import type { KadProjek } from "@/lib/projects";
+import type { Papan } from "@/lib/telegram";
 
 export type HasilTool = {
   untukLLM: unknown; // apa yang LLM akan baca
   kad?: KadProjek[]; // apa yang UI web akan paparkan (pilihan)
   tiadaHasil?: boolean; // tanda carian tidak jumpa apa-apa (untuk laporan harian)
+  papan?: Papan; // butang Telegram yang dilampirkan pada balasan akhir agent peribadi
 };
 
 export type Tool<S extends z.ZodTypeAny> = {

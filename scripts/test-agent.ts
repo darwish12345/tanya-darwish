@@ -33,13 +33,13 @@ function buatLLMPalsu(balasan: unknown[]) {
 
 async function main() {
   // 1. Pangkalan pengetahuan
-  console.log("Statistik:", statistik());
-  const sijil = cariPengetahuan("sijil Oracle");
+  console.log("Statistik:", await statistik());
+  const sijil = await cariPengetahuan("sijil Oracle");
   assert.ok(sijil.length > 0, "carian sijil sepatutnya jumpa hasil");
   assert.match(sijil[0].teks, /Oracle/);
   console.log("✓ carian 'sijil Oracle' →", sijil[0].sumber, "/", sijil[0].tajuk);
 
-  const english = cariPengetahuan("certifications Darwish");
+  const english = await cariPengetahuan("certifications Darwish");
   assert.ok(english.some((k) => k.teks.includes("Oracle")), "soalan English mesti jumpa sijil");
   console.log("✓ carian English 'certifications' jumpa sijil (sinonim BM)");
 
@@ -49,7 +49,7 @@ async function main() {
   console.log("✓ baris TODO tidak dimasukkan ke pengetahuan");
 
   // 2. Tools
-  assert.equal(DEFINISI_TOOLS.length, 3);
+  assert.equal(DEFINISI_TOOLS.length, 6);
   const salah = await jalankanTool("cari_pengetahuan", '{"soalan": 5}');
   assert.ok((salah.untukLLM as { ralat?: string }).ralat, "input salah ditolak");
   const tiada = await jalankanTool("padam_semua", "{}");

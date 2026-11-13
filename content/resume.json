@@ -1,0 +1,49 @@
+{
+  "_nota": "RESUME INDUK. Agent HANYA guna fakta di sini (dan maklumat CV yang anda hantar kepada bot Telegram) untuk menjana resume khas setiap jawatan. Nilai bermula dengan TODO diabaikan. JANGAN letak emel/telefon/alamat di sini kerana repo ini awam: ia diambil dari GMAIL_USER / RESUME_TELEFON / RESUME_LOKASI di Netlify, atau dari CV yang anda hantar kepada bot.",
+  "nama": "Muhammad Darwish Bin Khairul Asraf",
+  "tajuk": "Software Engineering Intern | Agentic AI & Web Developer",
+  "pautan": {
+    "github": "https://github.com/darwish12345",
+    "portfolio": "https://tanya-darwish.netlify.app",
+    "linkedin": "TODO"
+  },
+  "ringkasan": "Software Engineering intern who builds production web applications and AI agents. Designed, built and deployed Tanya Darwish, an agentic AI portfolio assistant with a hand-written agent loop, tool calling, retrieval (RAG), long-term memory and a Telegram personal assistant.",
+  "kemahiran": {
+    "Bahasa & Framework": ["TypeScript", "JavaScript", "React", "Next.js", "Node.js", "Tailwind CSS"],
+    "AI": ["LLM tool calling", "Agentic AI", "RAG", "Prompt engineering", "Groq API"],
+    "Data & Infrastruktur": ["Upstash Redis", "REST APIs", "Webhooks", "Netlify", "Git & GitHub"]
+  },
+  "pengalaman": [
+    {
+      "tajuk": "Software Engineering Intern (Industrial Training)",
+      "organisasi": "TCS Quality and Productivity Sdn Bhd",
+      "tempoh": "TODO",
+      "poin": ["TODO: tugas dan pencapaian sebenar semasa latihan industri (versi yang tidak sulit)"]
+    }
+  ],
+  "projek": [
+    {
+      "nama": "Tanya Darwish: Agentic AI Portfolio Assistant",
+      "pautan": "https://tanya-darwish.netlify.app",
+      "tech": ["Next.js", "TypeScript", "Groq LLM", "Upstash Redis", "Upstash QStash", "Telegram Bot API", "Netlify"],
+      "poin": [
+        "Built an AI agent with a hand-written agent loop and tool calling that answers recruiter questions with cited evidence from a knowledge base (RAG).",
+        "Developed a Telegram personal assistant that manages reminders, tasks and job-search preferences, with exact-time scheduling through a message queue.",
+        "Automated daily job discovery and job-match scoring, and generates tailored ATS-friendly resumes that are only sent after human approval.",
+        "Implemented guardrails (rate limiting, prompt-injection rules, input validation) and an automated evaluation suite to measure answer accuracy.",
+        "Deployed on a serverless stack (Netlify, Upstash) running at zero monthly cost."
+      ]
+    }
+  ],
+  "pendidikan": [
+    {
+      "kelayakan": "TODO: nama program / ijazah / diploma",
+      "institusi": "TODO",
+      "tempoh": "TODO",
+      "nota": ""
+    }
+  ],
+  "sijil": [
+    { "nama": "Oracle Agentic AI Foundations Associate", "penerbit": "Oracle", "tarikh": "Nov 2026" }
+  ]
+}

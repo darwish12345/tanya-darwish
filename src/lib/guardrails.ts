@@ -5,7 +5,7 @@
  * tetapi di Vercel setiap instance ada memori sendiri. Untuk produksi
  * (Minggu 5 dalam pelan), tukar kepada Upstash Redis.
  */
-export const HAD_PANJANG_MESEJ = 500;
+export const HAD_PANJANG_MESEJ = 3000; // cukup untuk menampal job description
 export const HAD_SEJARAH = 10; // bilangan mesej terakhir yang dihantar kepada LLM
 const HAD_SEJAM = 20; // mesej sejam bagi setiap IP
 

@@ -2,13 +2,29 @@
   {
     "id": "tanya-darwish",
     "nama": "Tanya Darwish (Portfolio Agent)",
-    "ringkasan": "Agent AI di laman portfolio yang menjawab soalan tentang kerjaya Darwish, menunjukkan bukti kerja dan menghantar mesej kepada Darwish.",
+    "ringkasan": "Agent AI dua wajah: laman portfolio yang menjawab soalan recruiter dengan bukti, dan pembantu peribadi Telegram yang mengurus peringatan, tugasan, carian kerja harian dan permohonan kerja dengan kelulusan.",
     "peranan": "Pembangun tunggal: reka bentuk, kod dan deploy",
     "tempoh": "Nov 2026 - sekarang",
-    "tech": ["Next.js", "TypeScript", "Groq (LLM)", "Tool calling", "RAG", "Tailwind CSS"],
-    "tag": ["ai", "agent", "web"],
-    "link": { "repo": "", "demo": "" },
-    "butiran": "Agent ini menggunakan gelung agent yang ditulis sendiri: LLM memilih tool (cari_pengetahuan, papar_projek, maklum_darwish), kod menjalankannya, dan hasilnya dihantar semula kepada LLM sehingga jawapan siap. Pengetahuan disimpan dalam fail Markdown, dipecah ikut tajuk dan dicari menggunakan carian teks. Butang soalan cadangan membolehkan pelawat bertanya tanpa menaip."
+    "tech": [
+      "Next.js",
+      "TypeScript",
+      "Groq (LLM)",
+      "Tool calling",
+      "RAG",
+      "Upstash Redis",
+      "QStash",
+      "Telegram Bot API"
+    ],
+    "tag": [
+      "ai",
+      "agent",
+      "web"
+    ],
+    "link": {
+      "repo": "https://github.com/darwish12345/tanya-darwish",
+      "demo": "https://tanya-darwish.netlify.app"
+    },
+    "butiran": "Gelung agent ditulis sendiri: LLM memilih tool, kod menjalankannya, hasil dihantar semula sehingga jawapan siap. Pengetahuan dicari dengan RAG. Memori jangka panjang di Upstash Redis, kerja latar dan peringatan tepat-masa melalui Upstash QStash. Agent Telegram mengurus peringatan (termasuk berulang), tugasan dengan amaran deadline, carian kerja harian dengan skor padanan, resume ATS dan cover letter khas yang hanya dihantar selepas Darwish tekan butang Hantar. Disertakan guardrails, ujian regresi dan eval automatik. Kos operasi RM0 sebulan."
   },
   {
     "id": "contoh-projek",
@@ -19,7 +35,10 @@
     "tempoh": "TODO",
     "tech": [],
     "tag": [],
-    "link": { "repo": "", "demo": "" },
+    "link": {
+      "repo": "",
+      "demo": ""
+    },
     "butiran": "TODO: Masalah, penyelesaian, sumbangan anda, cabaran, hasil. Projek dengan \"draf\": true tidak dipaparkan kepada agent."
   }
 ]

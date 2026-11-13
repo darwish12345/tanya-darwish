@@ -2,10 +2,16 @@
  * SEMAKAN KESIHATAN: GET /api/sihat
  * Semak setiap bahagian sistem dan berapa lama ia ambil. Tiada rahsia didedahkan.
  */
+import { connection } from "next/server";
 import { bacaJSON, tulisJSON, jenisStoran } from "@/lib/store";
 import { bacaStatus } from "@/lib/data";
 import { klien, MODEL } from "@/lib/agent/loop";
 import { semakBot, ralatTelegramTerakhir, tokenBot } from "@/lib/telegram";
+import { qstashDisetup } from "@/lib/qstash";
+import { jsearchDisetup } from "@/lib/kerjaya/jsearch";
+import { emelDisetup } from "@/lib/emel";
+import { kalendarDisetup } from "@/lib/kalendar";
+import { namaPengguna } from "@/lib/github";
 
 async function ukur<T>(fn: () => Promise<T>) {
   const mula = Date.now();
@@ -18,6 +24,7 @@ async function ukur<T>(fn: () => Promise<T>) {
 }
 
 export async function GET() {
+  await connection(); // sentiasa dijalankan semasa permintaan (bukan semasa build)
   const storan = await ukur(async () => {
     const tanda = new Date().toISOString();
     await tulisJSON("sihat", { tanda });
@@ -46,6 +53,19 @@ export async function GET() {
       TELEGRAM_BOT_TOKEN: Boolean(process.env.TELEGRAM_BOT_TOKEN),
       TELEGRAM_CHAT_ID: Boolean(process.env.TELEGRAM_CHAT_ID),
       AGENT_SECRET: (process.env.AGENT_SECRET?.length ?? 0) >= 16,
+    },
+    ciri: {
+      peringatanTepatMasa_QSTASH: qstashDisetup(),
+      carianKerja_JSEARCH: jsearchDisetup(),
+      hantarEmel_GMAIL: emelDisetup(),
+      kalendar_GOOGLE: kalendarDisetup(),
+      github: namaPengguna(),
+    },
+    kerjaLatar: {
+      ralatTerakhir: (status as { ralatKerja?: unknown }).ralatKerja ?? null,
+      briefingTerakhir: (status as { briefingTerakhir?: string }).briefingTerakhir ?? null,
+      carianKerjaTerakhir: (status as { carianKerjaTerakhir?: string }).carianKerjaTerakhir ?? null,
+      laporanTerakhir: (status as { laporanTerakhir?: string }).laporanTerakhir ?? null,
     },
     storan: { jenis: jenisStoran(), ...storan, ...(jenisStoran() !== "upstash" ? { amaran: "Sila setup Upstash Redis (UPSTASH_REDIS_REST_URL & UPSTASH_REDIS_REST_TOKEN)" } : {}) },
     groq,
