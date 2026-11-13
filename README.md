@@ -118,12 +118,12 @@ Bot Telegram yang hanya mendengar arahan Darwish:
 | `src/app/api/telegram/route.ts` | Webhook: Telegram hantar mesej bot ke sini |
 | `src/app/api/telegram/setup/route.ts` | Sambung bot ke webhook (sekali sahaja) |
 | `src/app/api/cron/route.ts` | Dipanggil setiap 5 minit: peringatan & laporan |
-| `src/lib/store.ts` | Memori kekal: Netlify Blobs (fail `.data/` di laptop) |
+| `src/lib/store.ts` | Memori kekal: Upstash Redis (sandaran: Netlify Blobs; fail `.data/` di laptop) |
 | `src/lib/masa.ts` | Penukaran waktu Malaysia |
 
 ### Setup
 
-1. Netlify → *Environment variables*: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `AGENT_SECRET` (huruf + nombor, minimum 16 aksara). Deploy semula.
+1. Netlify → *Environment variables*: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `AGENT_SECRET` (huruf + nombor, minimum 16 aksara), `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`. Deploy semula.
 2. Buka sekali: `https://tanya-darwish.netlify.app/api/telegram/setup?kunci=AGENT_SECRET`
 3. Di [cron-job.org](https://cron-job.org) (percuma), cipta cron job setiap 5 minit ke `https://tanya-darwish.netlify.app/api/cron?kunci=AGENT_SECRET`
 4. Hantar `/start` kepada bot anda.

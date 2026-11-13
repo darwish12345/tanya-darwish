@@ -2,7 +2,7 @@
  * DATA AGENT: apa yang agent ingat secara kekal.
  * Semua data disimpan melalui store.ts (Netlify Blobs di produksi).
  */
-import { bacaJSON, tulisJSON, tambahKeSenarai } from "@/lib/store";
+import { bacaJSON, tulisJSON, tambahKeSenarai, bacaSenarai } from "@/lib/store";
 import { tarikhMY } from "@/lib/masa";
 
 // ── Keutamaan carian kerja (diubah melalui Telegram) ──────────────────────
@@ -85,12 +85,12 @@ export type Lead = {
   ringkasan?: string; // apa yang pelawat tanya sebelum ini
 };
 export const simpanLead = (l: Lead) => tambahKeSenarai("leads", l, 300);
-export const bacaLeads = () => bacaJSON<Lead[]>("leads", []);
+export const bacaLeads = () => bacaSenarai<Lead>("leads");
 
 // ── Log soalan pelawat web (untuk laporan harian) ─────────────────────────
 export type LogSoalan = { masa: string; soalan: string; tools: string[]; tiadaJawapan: boolean };
 export const logSoalan = (l: LogSoalan) => tambahKeSenarai(`log-${tarikhMY(new Date(l.masa))}`, l, 1000);
-export const bacaLogHari = (tarikh: string) => bacaJSON<LogSoalan[]>(`log-${tarikh}`, []);
+export const bacaLogHari = (tarikh: string) => bacaSenarai<LogSoalan>(`log-${tarikh}`);
 
 // ── Sejarah chat Telegram antara Darwish dan agent peribadi ───────────────
 export type MesejChat = { role: "user" | "assistant"; content: string };
