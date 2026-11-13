@@ -36,6 +36,7 @@ export async function GET() {
   });
 
   const telegram = await semakBot();
+  const status = await bacaStatus().catch((e) => ({ ralatBacaStatus: String(e) }) as Record<string, unknown>);
   const tokenAsal = process.env.TELEGRAM_BOT_TOKEN ?? "";
 
   return Response.json({
@@ -52,7 +53,8 @@ export async function GET() {
       ...telegram,
       tokenAdaRuangKosong: tokenAsal !== tokenAsal.trim(),
       tokenAdaAwalanBot: tokenAsal.trim() !== tokenBot(),
-      ralatHantarTerakhir: ralatTelegramTerakhir ?? (await bacaStatus().catch(() => ({ ralatTelegram: null }))).ralatTelegram ?? null,
+      ralatHantarTerakhir: ralatTelegramTerakhir ?? (status as { ralatTelegram?: string }).ralatTelegram ?? null,
+      ralatWebhookTerakhir: (status as { ralatWebhook?: unknown }).ralatWebhook ?? null,
     },
   });
 }
