@@ -2,6 +2,11 @@
 [build]
   command = "npm run build"
 
+# Imbasan rahsia Netlify tersalah "jumpa" token Upstash dalam fail binari (amaran palsu).
+# Kita abaikan KUNCI ini sahaja; imbasan untuk rahsia lain kekal aktif.
+[build.environment]
+  SECRETS_SCAN_OMIT_KEYS = "UPSTASH_REDIS_REST_TOKEN"
+
 # Pastikan fail pengetahuan agent (content/) dibawa bersama ke server
 [functions]
   included_files = ["content/**"]
