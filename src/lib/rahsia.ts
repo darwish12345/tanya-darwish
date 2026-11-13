@@ -3,7 +3,7 @@
  * Tanpanya, sesiapa yang tahu URL boleh menghantar arahan palsu kepada agent.
  */
 export function rahsiaSah(nilai: string | null | undefined): boolean {
-  const rahsia = process.env.AGENT_SECRET;
+  const rahsia = process.env.AGENT_SECRET?.trim();
   if (!rahsia || rahsia.length < 16) return false; // wajib ditetapkan, minimum 16 aksara
-  return nilai === rahsia;
+  return nilai?.trim() === rahsia;
 }

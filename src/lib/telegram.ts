@@ -4,14 +4,22 @@
  */
 const API = () => process.env.TELEGRAM_API_BASE || "https://api.telegram.org";
 
+/** Nilai env dibersihkan: ruang/baris baru yang terikut semasa tampal di Netlify dibuang. */
+export function tokenBot(): string {
+  return (process.env.TELEGRAM_BOT_TOKEN ?? "").trim().replace(/^bot/i, "");
+}
+
 export function telegramDisetup(): boolean {
-  return Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID);
+  return Boolean(tokenBot() && chatIdPemilik());
 }
 
 /** Chat ID pemilik (Darwish). Hanya chat ini boleh memberi arahan kepada agent peribadi. */
 export function chatIdPemilik(): string {
-  return String(process.env.TELEGRAM_CHAT_ID ?? "");
+  return String(process.env.TELEGRAM_CHAT_ID ?? "").trim();
 }
+
+/** Ralat Telegram terakhir disimpan dalam memori supaya /api/sihat boleh tunjukkan (bukan senyap). */
+export let ralatTelegramTerakhir: string | null = null;
 
 /** Tukar Markdown ringkas dari LLM (**tebal**) kepada HTML Telegram yang selamat. */
 export function keHtmlTelegram(teks: string): string {
@@ -27,41 +35,56 @@ export async function hantarTelegram(
   teks: string,
   chatId: string = chatIdPemilik(),
 ): Promise<boolean> {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const token = tokenBot();
   if (!token || !chatId) {
-    console.error("[telegram] Token atau chat id belum ditetapkan");
+    ralatTelegramTerakhir = "Token atau chat id belum ditetapkan";
+    console.error("[telegram]", ralatTelegramTerakhir);
     return false;
   }
-  try {
-    // Telegram hadkan 4096 aksara setiap mesej
-    const res = await fetch(`${API()}/bot${token}/sendMessage`, {
+  const hantar = (badan: Record<string, unknown>) =>
+    fetch(`${API()}/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: keHtmlTelegram(teks).slice(0, 4000),
-        parse_mode: "HTML",
-        disable_web_page_preview: true,
-      }),
+      body: JSON.stringify({ chat_id: chatId, disable_web_page_preview: true, ...badan }),
     });
+  try {
+    // Cuba dengan format HTML; jika Telegram tolak format itu, hantar sebagai teks biasa
+    let res = await hantar({ text: keHtmlTelegram(teks).slice(0, 4000), parse_mode: "HTML" });
+    if (res.status === 400) res = await hantar({ text: teks.replace(/\*\*/g, "").slice(0, 4000) });
     if (!res.ok) {
-      console.error("[telegram] Ditolak:", res.status, await res.text());
+      ralatTelegramTerakhir = `sendMessage ${res.status}: ${(await res.text()).slice(0, 200)}`;
+      console.error("[telegram] Ditolak:", ralatTelegramTerakhir);
       return false;
     }
+    ralatTelegramTerakhir = null;
     return true;
   } catch (e) {
-    console.error("[telegram] Rangkaian gagal:", e);
+    ralatTelegramTerakhir = `Rangkaian gagal: ${e instanceof Error ? e.message : String(e)}`;
+    console.error("[telegram]", ralatTelegramTerakhir);
     return false;
   }
 }
 
 /** Tunjuk "sedang menaip..." semasa agent berfikir. */
 export async function tunjukMenaip(chatId: string): Promise<void> {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const token = tokenBot();
   if (!token) return;
   await fetch(`${API()}/bot${token}/sendChatAction`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: chatId, action: "typing" }),
   }).catch(() => {});
+}
+
+/** Semak token dengan getMe: pulangkan username bot jika token sah. */
+export async function semakBot(): Promise<{ ok: boolean; bot?: string; ralat?: string }> {
+  const token = tokenBot();
+  if (!token) return { ok: false, ralat: "Token tiada" };
+  try {
+    const res = await fetch(`${API()}/bot${token}/getMe`);
+    const d = (await res.json()) as { ok: boolean; result?: { username: string }; description?: string };
+    return d.ok ? { ok: true, bot: `@${d.result?.username}` } : { ok: false, ralat: `${res.status} ${d.description ?? ""}` };
+  } catch (e) {
+    return { ok: false, ralat: e instanceof Error ? e.message : String(e) };
+  }
 }

@@ -5,7 +5,14 @@
  */
 import { jalankanAgenPeribadi } from "@/lib/agent/peribadi";
 import { bacaSejarahTelegram, simpanSejarahTelegram, bacaStatus, kemasStatus } from "@/lib/data";
-import { hantarTelegram, tunjukMenaip, chatIdPemilik } from "@/lib/telegram";
+import { hantarTelegram as hantarAsal, tunjukMenaip, chatIdPemilik, ralatTelegramTerakhir } from "@/lib/telegram";
+
+/** Hantar dan rekod ralat ke storan, supaya /api/sihat boleh tunjukkan punca jika bot senyap. */
+async function hantarTelegram(teks: string, chatId: string) {
+  const ok = await hantarAsal(teks, chatId);
+  await kemasStatus({ ralatTelegram: ok ? null : ralatTelegramTerakhir }).catch(() => {});
+  return ok;
+}
 import { rahsiaSah } from "@/lib/rahsia";
 
 type UpdateTelegram = {

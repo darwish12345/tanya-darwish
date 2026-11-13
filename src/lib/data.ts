@@ -98,7 +98,7 @@ export const bacaSejarahTelegram = () => bacaJSON<MesejChat[]>("telegram-sejarah
 export const simpanSejarahTelegram = (s: MesejChat[]) => tulisJSON("telegram-sejarah", s.slice(-20));
 
 // ── Status sistem (elak hantar laporan dua kali, elak proses update Telegram berulang) ─
-export type Status = { laporanTerakhir?: string; updateTelegramTerakhir?: number };
+export type Status = { laporanTerakhir?: string; updateTelegramTerakhir?: number; ralatTelegram?: string | null };
 export const bacaStatus = () => bacaJSON<Status>("status", {});
 export async function kemasStatus(ubah: Partial<Status>) {
   await tulisJSON("status", { ...(await bacaStatus()), ...ubah });

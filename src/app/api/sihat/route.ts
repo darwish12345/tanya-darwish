@@ -3,7 +3,9 @@
  * Semak setiap bahagian sistem dan berapa lama ia ambil. Tiada rahsia didedahkan.
  */
 import { bacaJSON, tulisJSON, jenisStoran } from "@/lib/store";
+import { bacaStatus } from "@/lib/data";
 import { klien, MODEL } from "@/lib/agent/loop";
+import { semakBot, ralatTelegramTerakhir, tokenBot } from "@/lib/telegram";
 
 async function ukur<T>(fn: () => Promise<T>) {
   const mula = Date.now();
@@ -33,6 +35,9 @@ export async function GET() {
     return res.choices[0].finish_reason;
   });
 
+  const telegram = await semakBot();
+  const tokenAsal = process.env.TELEGRAM_BOT_TOKEN ?? "";
+
   return Response.json({
     model: MODEL,
     tetapan: {
@@ -43,5 +48,11 @@ export async function GET() {
     },
     storan: { jenis: jenisStoran(), konteksBlobs: Boolean((globalThis as { netlifyBlobsContext?: unknown }).netlifyBlobsContext || process.env.NETLIFY_BLOBS_CONTEXT), ...storan },
     groq,
+    telegram: {
+      ...telegram,
+      tokenAdaRuangKosong: tokenAsal !== tokenAsal.trim(),
+      tokenAdaAwalanBot: tokenAsal.trim() !== tokenBot(),
+      ralatHantarTerakhir: ralatTelegramTerakhir ?? (await bacaStatus().catch(() => ({ ralatTelegram: null }))).ralatTelegram ?? null,
+    },
   });
 }
