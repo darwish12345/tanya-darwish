@@ -102,9 +102,17 @@ const maklumDarwishTool = buatTool({
 
     const token = process.env.TELEGRAM_BOT_TOKEN;
     const chatId = process.env.TELEGRAM_CHAT_ID;
+    // Jujur dengan pelawat: jangan kata "dihantar" jika mesej sebenarnya tidak sampai
+    const gagal = {
+      untukLLM: {
+        status: "gagal",
+        nota: "Mesej TIDAK sampai kepada Darwish. Beritahu pelawat dengan jujur dan cadangkan mereka cuba lagi nanti atau hubungi Darwish melalui LinkedIn.",
+      },
+    };
+
     if (!token || !chatId) {
-      console.log("[maklum_darwish] Telegram belum disetup. Mesej:\n" + teks);
-      return { untukLLM: { status: "diterima", nota: "Mesej direkod. Darwish akan menghubungi pelawat." } };
+      console.error("[maklum_darwish] TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID belum ditetapkan. Mesej:\n" + teks);
+      return gagal;
     }
 
     const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -112,9 +120,11 @@ const maklumDarwishTool = buatTool({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chat_id: chatId, text: teks }),
     });
-    return res.ok
-      ? { untukLLM: { status: "dihantar" } }
-      : { untukLLM: { status: "gagal", nota: "Minta pelawat cuba lagi sebentar lagi." } };
+    if (!res.ok) {
+      console.error("[maklum_darwish] Telegram menolak:", res.status, await res.text());
+      return gagal;
+    }
+    return { untukLLM: { status: "dihantar" } };
   },
 });
 
