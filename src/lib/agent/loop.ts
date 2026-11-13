@@ -71,7 +71,10 @@ export async function jalankanAgent(
       tools: DEFINISI_TOOLS,
       tool_choice: "auto",
       temperature: 0.3,
-      max_tokens: 1024,
+      // Model gpt-oss "berfikir" dahulu dan token fikiran dikira dalam had ini.
+      // Had yang terlalu rendah boleh menghasilkan jawapan kosong, jadi beri ruang.
+      max_tokens: 2048,
+      ...(MODEL.startsWith("openai/gpt-oss") ? { reasoning_effort: "low" as const } : {}),
     });
     const mesej = res.choices[0].message;
 
@@ -85,6 +88,16 @@ export async function jalankanAgent(
     // ── Langkah 2: tiada permintaan tool → jawapan akhir ──────────────────
     if (!mesej.tool_calls || mesej.tool_calls.length === 0) {
       const { jawapan, cadangan } = asingkanCadangan(mesej.content ?? "");
+      // Pelindung: jangan sekali-kali hantar gelembung kosong kepada pelawat
+      if (!jawapan) {
+        console.error("[agent] Jawapan kosong, finish_reason:", res.choices[0].finish_reason);
+        return {
+          jawapan: "Maaf, saya tak dapat menyiapkan jawapan tadi. Boleh cuba tanya sekali lagi?",
+          cadangan,
+          kad,
+          langkah,
+        };
+      }
       return { jawapan, cadangan, kad, langkah };
     }
 

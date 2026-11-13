@@ -96,9 +96,35 @@ function dapatkanIndeks() {
   return indeks;
 }
 
+/**
+ * Pengetahuan ditulis dalam BM, tetapi pelawat mungkin bertanya dalam English.
+ * Carian teks hanya padankan perkataan yang sama, jadi "certifications" tidak akan
+ * jumpa "sijil". Kamus kecil ini menambah padanan BM sebelum carian.
+ * (Carian vektor dalam fasa seterusnya akan menyelesaikan masalah ini secara semula jadi.)
+ */
+const SINONIM: Record<string, string> = {
+  certification: "sijil", certifications: "sijil", certificate: "sijil", certified: "sijil",
+  project: "projek", projects: "projek", portfolio: "projek", repo: "projek", github: "projek",
+  skill: "kemahiran", skills: "kemahiran", stack: "kemahiran teknikal", tech: "kemahiran teknikal",
+  education: "pendidikan", university: "pendidikan universiti", degree: "pendidikan",
+  experience: "pengalaman", work: "pengalaman", internship: "latihan industri pengalaman", intern: "latihan industri",
+  contact: "hubungi", email: "hubungi", linkedin: "hubungi",
+  goal: "matlamat kerjaya", career: "kerjaya", job: "matlamat kerjaya", strength: "kekuatan", why: "kenapa",
+  about: "ringkasan profil", who: "ringkasan profil", summary: "ringkasan",
+};
+
+function kembangkanSoalan(soalan: string): string {
+  const tambahan = soalan
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .map((p) => SINONIM[p])
+    .filter(Boolean);
+  return [soalan, ...tambahan].join(" ");
+}
+
 /** Cari ketul paling relevan untuk satu soalan. */
 export function cariPengetahuan(soalan: string, had = 4): Ketul[] {
-  const hasil = dapatkanIndeks().search(soalan, { combineWith: "OR" });
+  const hasil = dapatkanIndeks().search(kembangkanSoalan(soalan), { combineWith: "OR" });
   return hasil.slice(0, had).map((h) => ({
     id: String(h.id),
     sumber: h.sumber as string,

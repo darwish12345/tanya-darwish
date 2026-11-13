@@ -39,6 +39,10 @@ async function main() {
   assert.match(sijil[0].teks, /Oracle/);
   console.log("✓ carian 'sijil Oracle' →", sijil[0].sumber, "/", sijil[0].tajuk);
 
+  const english = cariPengetahuan("certifications Darwish");
+  assert.ok(english.some((k) => k.teks.includes("Oracle")), "soalan English mesti jumpa sijil");
+  console.log("✓ carian English 'certifications' jumpa sijil (sinonim BM)");
+
   const ketul = pecahMarkdown("t.md", "# T\n## A\nisi\nTODO: rahsia\n## B\nTODO: kosong\n");
   assert.equal(ketul.length, 1, "bahagian yang semua TODO diabaikan");
   assert.ok(!ketul[0].teks.includes("rahsia"), "baris TODO dibuang");
@@ -86,6 +90,12 @@ async function main() {
   assert.equal(mesejTool?.tool_call_id, "c1");
   assert.match(mesejTool?.content ?? "", /Tanya Darwish/);
   console.log("✓ gelung agent: tool → tool → jawapan akhir");
+  // 5. Jawapan kosong tidak boleh sampai kepada pelawat
+  const kosong = buatLLMPalsu([{ role: "assistant", content: "" }]);
+  const hasilKosong = await jalankanAgent([{ role: "user", content: "hai" }], kosong.llm);
+  assert.ok(hasilKosong.jawapan.length > 0, "jawapan kosong digantikan dengan mesej sandaran");
+  console.log("✓ jawapan kosong digantikan dengan mesej sandaran");
+
   console.log("\nJawapan:", hasil.jawapan);
   console.log("Langkah:", hasil.langkah.map((l) => l.tool).join(" → "));
   console.log("\nSemua ujian lulus.");
