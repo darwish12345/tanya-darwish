@@ -52,12 +52,30 @@ export function asingkanCadangan(teks: string): { jawapan: string; cadangan: str
   return { jawapan, cadangan };
 }
 
+const PENANDA_EN = new Set("what does do is are the how show me his him he have has can could who tell about which where when you your i my projects project skills experience education contact please".split(" "));
+const PENANDA_BM = new Set("apa saya dia ada tak nak boleh yang dan ini itu tentang untuk dengan bila siapa mana kenapa bagaimana berapa ceritakan tunjukkan projek kemahiran sijil pengalaman hubungi mahu ingin".split(" "));
+
+/** Kesan bahasa mesej terakhir pelawat secara ringkas (kiraan perkataan penanda). */
+export function kesanBahasa(teks: string): "en" | "ms" {
+  const perkataan = teks.toLowerCase().split(/[^a-z']+/).filter(Boolean);
+  const en = perkataan.filter((p) => PENANDA_EN.has(p)).length;
+  const ms = perkataan.filter((p) => PENANDA_BM.has(p)).length;
+  return en > ms ? "en" : "ms";
+}
+
 export async function jalankanAgent(
   sejarah: MesejSejarah[],
   llm: KlienLLM = klien(),
 ): Promise<HasilAgent> {
+  // Model cenderung ikut bahasa hasil carian (BM), jadi bahasa balasan ditetapkan oleh kod
+  const terakhir = [...sejarah].reverse().find((m) => m.role === "user")?.content ?? "";
+  const arahanBahasa =
+    kesanBahasa(terakhir) === "en"
+      ? "The visitor's latest message is in ENGLISH. Write your entire reply and the <cadangan> questions in English, even though the knowledge base is in Malay."
+      : "Mesej terakhir pelawat dalam Bahasa Melayu. Balas dalam Bahasa Melayu.";
+
   const messages: ChatCompletionMessageParam[] = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: `${SYSTEM_PROMPT}\n\n${arahanBahasa}` },
     ...sejarah,
   ];
   const langkah: Langkah[] = [];

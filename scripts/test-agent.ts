@@ -9,7 +9,7 @@
  * Ini membuktikan gelung, tools dan carian berfungsi.
  */
 import assert from "node:assert/strict";
-import { jalankanAgent, asingkanCadangan, type KlienLLM } from "../src/lib/agent/loop";
+import { jalankanAgent, asingkanCadangan, kesanBahasa, type KlienLLM } from "../src/lib/agent/loop";
 import { cariPengetahuan, pecahMarkdown, statistik } from "../src/lib/rag/knowledge";
 import { jalankanTool, DEFINISI_TOOLS } from "../src/lib/agent/tools";
 
@@ -90,7 +90,15 @@ async function main() {
   assert.equal(mesejTool?.tool_call_id, "c1");
   assert.match(mesejTool?.content ?? "", /Tanya Darwish/);
   console.log("✓ gelung agent: tool → tool → jawapan akhir");
-  // 5. Jawapan kosong tidak boleh sampai kepada pelawat
+  // 5. Pengesanan bahasa
+  assert.equal(kesanBahasa("What certifications does Darwish have?"), "en");
+  assert.equal(kesanBahasa("Show me Darwish's projects."), "en");
+  assert.equal(kesanBahasa("Apa sijil Darwish?"), "ms");
+  assert.equal(kesanBahasa("Saya nak berhubung dengan Darwish."), "ms");
+  assert.equal(kesanBahasa("Tunjukkan projek dan repo GitHub Darwish."), "ms");
+  console.log("✓ pengesanan bahasa BM / English");
+
+  // 6. Jawapan kosong tidak boleh sampai kepada pelawat
   const kosong = buatLLMPalsu([{ role: "assistant", content: "" }]);
   const hasilKosong = await jalankanAgent([{ role: "user", content: "hai" }], kosong.llm);
   assert.ok(hasilKosong.jawapan.length > 0, "jawapan kosong digantikan dengan mesej sandaran");
