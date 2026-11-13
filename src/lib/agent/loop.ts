@@ -23,6 +23,15 @@ import type { Papan } from "@/lib/telegram";
 
 export const MAKS_PUSINGAN = 5;
 export const MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
+// Model sandaran bila kuota HARIAN model utama habis (had Groq percuma dikira berasingan bagi setiap model)
+export const MODEL_SANDARAN = process.env.GROQ_MODEL_SANDARAN || "openai/gpt-oss-20b";
+
+/** Ralat 429 kerana had harian (token/permintaan sehari), bukan had seminit. */
+export function kuotaHarianHabis(e: unknown): boolean {
+  const s = (e as { status?: number }).status;
+  const m = e instanceof Error ? e.message : String(e);
+  return s === 429 && /per day|TPD|RPD/i.test(m);
+}
 
 export type MesejSejarah = { role: "user" | "assistant"; content: string };
 export type Langkah = { tool: string; input: string };
@@ -52,35 +61,53 @@ export type HasilGelung = {
 
 export async function jalankanGelung(opsyen: {
   systemPrompt: string;
+  /** Konteks yang berubah (masa, keadaan semasa). Dihantar sebagai mesej sistem KEDUA supaya
+   *  system prompt + tools kekal sama dari permintaan ke permintaan dan boleh dicache oleh Groq
+   *  (token yang dicache tidak dikira dalam had percuma). */
+  konteks?: string;
   tools: SebarangTool[];
   sejarah: MesejSejarah[];
   llm?: KlienLLM;
+  usahaFikir?: "low" | "medium" | "high";
+  maksPusingan?: number;
 }): Promise<HasilGelung> {
-  const { systemPrompt, tools, sejarah, llm = klien() } = opsyen;
+  const { systemPrompt, konteks, tools, sejarah, llm = klien(), usahaFikir = "low", maksPusingan = MAKS_PUSINGAN } = opsyen;
   const definisi = keDefinisi(tools);
-  const messages: ChatCompletionMessageParam[] = [{ role: "system", content: systemPrompt }, ...sejarah];
+  const messages: ChatCompletionMessageParam[] = [
+    { role: "system", content: systemPrompt },
+    ...(konteks ? [{ role: "system" as const, content: konteks }] : []),
+    ...sejarah,
+  ];
+  let model = MODEL;
   const langkah: Langkah[] = [];
   const kad: KadProjek[] = [];
   const papan: Papan = [];
   let tiadaHasil = false;
 
   let pemulihan = 0;
-  for (let pusingan = 0; pusingan < MAKS_PUSINGAN; pusingan++) {
+  for (let pusingan = 0; pusingan < maksPusingan; pusingan++) {
     // ── Langkah 1: tanya LLM ───────────────────────────────────────────────
     let res: Awaited<ReturnType<KlienLLM["chat"]["completions"]["create"]>>;
     try {
       res = await llm.chat.completions.create({
-        model: MODEL,
+        model,
         messages,
         tools: definisi,
         tool_choice: "auto",
         temperature: 0.3,
         // Model gpt-oss "berfikir" dahulu dan token fikiran dikira dalam had ini.
         // Had yang terlalu rendah boleh menghasilkan jawapan kosong, jadi beri ruang.
-        max_tokens: 2048,
-        ...(MODEL.startsWith("openai/gpt-oss") ? { reasoning_effort: "low" as const } : {}),
+        max_tokens: usahaFikir === "low" ? 2048 : 4096,
+        ...(model.startsWith("openai/gpt-oss") ? { reasoning_effort: usahaFikir } : {}),
       });
     } catch (e) {
+      // Kuota harian model utama habis → teruskan dengan model sandaran (percuma juga)
+      if (model !== MODEL_SANDARAN && kuotaHarianHabis(e)) {
+        console.warn(`[agent] Kuota harian ${model} habis, guna ${MODEL_SANDARAN}`);
+        model = MODEL_SANDARAN;
+        pusingan--;
+        continue;
+      }
       // Model kadang-kadang REKA nama tool (contoh "batalkan_peringatan" sedangkan nama sebenar
       // "batal_peringatan"). API menolak dengan ralat 400 tool_use_failed. Kita beritahu model
       // nama tool yang sah dan cuba semula (maksimum 2 kali) — agent pulih sendiri.

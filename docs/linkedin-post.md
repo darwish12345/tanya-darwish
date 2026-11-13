@@ -22,7 +22,7 @@ It also runs my job search.
 What I learned building it as an intern:
 1️⃣ An agent is a loop, not a prompt. I wrote mine by hand (LLM → tool → result → LLM) so I understand every step.
 2️⃣ Real users find real bugs. "Tomorrow skip LinkedIn" once became a permanent setting. Every bug like that is now a regression test.
-3️⃣ Measure it. 56 automated eval cases run against the real model in GitHub Actions. Current score: [X%].
+3️⃣ Measure it. 62 automated eval cases run against the real model in GitHub Actions. Current score: [X%].
 4️⃣ Keep humans in control of anything irreversible.
 
 Stack: Next.js · TypeScript · Groq (gpt-oss-120b) · Upstash Redis & QStash · Telegram Bot API · Netlify. Running cost: RM0/month.

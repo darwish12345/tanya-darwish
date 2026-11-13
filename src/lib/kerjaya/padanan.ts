@@ -13,7 +13,9 @@ export type Penilaian = { id: string; skor: number; sebab: string; padan: string
 const SISTEM = `Anda penilai padanan kerja yang jujur dan tegas. Bandingkan setiap iklan dengan profil calon.
 Peraturan:
 - Skor 0-100: 80+ sangat sesuai, 60-79 sesuai, 40-59 boleh dicuba, <40 kurang sesuai.
-- Calon ialah pelatih / graduan baru: jawatan yang menuntut 3+ tahun pengalaman dapat skor rendah.
+- Calon ialah GRADUAN BARU (tamat ijazah Feb 2027) dengan latihan industri 6 bulan dan tiada pengalaman kerja sepenuh masa.
+- Calon mencari kerja sepenuh masa fresh grad / entry-level. Iklan internship atau latihan industri: skor 0.
+- Jawatan yang menuntut 2+ tahun pengalaman: maksimum 35. Jawatan junior/graduate/entry-level yang sepadan kemahiran: skor tinggi.
 - "padan": kemahiran/keperluan iklan yang BENAR-BENAR ada dalam profil (jangan reka).
 - "kurang": keperluan penting iklan yang tiada dalam profil.
 - "sebab": satu ayat ringkas dalam Bahasa Melayu.`;

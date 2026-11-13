@@ -13,7 +13,7 @@ import { jadualkan, qstashDisetup } from "@/lib/qstash";
 import { hantarMesej, type Papan } from "@/lib/telegram";
 import { tarikhMY } from "@/lib/masa";
 import type { KlienLLM } from "@/lib/agent/loop";
-import { cariJSearch, jsearchDisetup, tapisIkutSumber, type IklanKerja } from "./jsearch";
+import { cariJSearch, jsearchDisetup, tapisIkutSumber, sesuaiFreshGrad, type IklanKerja } from "./jsearch";
 import { nilaiBerkelompok } from "./padanan";
 import { simpanRekod, sudahDilihat, type RekodKerja } from "./rekod";
 
@@ -38,11 +38,11 @@ export async function mulaCarian(kini: Date = new Date(), llm?: KlienLLM): Promi
   await tulisJSON(kunciCalon(tarikh), { sumber, sebab, calon: [] });
 
   if (qstashDisetup()) {
-    for (const jawatan of k.jawatan.slice(0, 3)) await jadualkan("cari-kerja-jawatan", { jawatan, tarikh });
+    for (const jawatan of k.jawatan.slice(0, 4)) await jadualkan("cari-kerja-jawatan", { jawatan, tarikh });
     await jadualkan("nilai-kerja", { tarikh }, { kelewatanSaat: 90 });
     return "dijadualkan";
   }
-  for (const jawatan of k.jawatan.slice(0, 3)) await cariSatuJawatan(jawatan, tarikh);
+  for (const jawatan of k.jawatan.slice(0, 4)) await cariSatuJawatan(jawatan, tarikh);
   await nilaiDanHantar(tarikh, llm);
   return "selesai";
 }
@@ -57,12 +57,12 @@ export async function cariSatuJawatan(jawatan: string, tarikh: string): Promise<
   const dilihat = await sudahDilihat();
   let iklan: IklanKerja[] = [];
   try {
-    iklan = await cariJSearch(`${jawatan} in ${k.lokasi}`, { tempoh: "3days" });
+    iklan = await cariJSearch(`${jawatan} in ${k.lokasi}`, { tempoh: "3days", keperluan: "under_3_years_experience,no_experience" });
   } catch (e) {
     console.error("[pemburu] JSearch gagal:", e);
     return 0;
   }
-  const baru = tapisIkutSumber(iklan, keadaan.sumber).filter((x) => !dilihat.has(x.id));
+  const baru = tapisIkutSumber(iklan, keadaan.sumber).filter((x) => !dilihat.has(x.id) && sesuaiFreshGrad(x));
   // Baca semula sebelum tulis (carian jawatan lain mungkin baru menulis)
   const terkini = await bacaJSON<typeof keadaan>(kunciCalon(tarikh), keadaan);
   const sedia = new Set(terkini.calon.map((c) => c.id));

@@ -61,8 +61,9 @@ Slot interview: Isnin–Jumaat 10:00–17:00, sekurang-kurangnya 12 jam dari sek
 
 ## 6. Maklumat resume (2 minit)
 
-Netlify: `RESUME_TELEFON` dan `RESUME_LOKASI` (contoh "Shah Alam, Selangor"). Nilai ini tidak disimpan dalam repo awam.
-Kemudian hantar **PDF CV anda** kepada bot Telegram. Agent akan mengisi pendidikan dan pengalaman dalam resume induk.
+Netlify: `RESUME_TELEFON` dan `RESUME_LOKASI` (contoh "Sungai Petani, Kedah"). Nilai ini tidak disimpan dalam repo awam.
+Pendidikan, kemahiran dan projek sudah diisi dalam `content/resume.json` dari resume anda. Hanya projek yang ada di GitHub
+dipaparkan. Jika mahu emel resume berbeza daripada Gmail penghantar, tambah `RESUME_EMEL`.
 
 ## 7. Eval di GitHub Actions (3 minit)
 

@@ -7,6 +7,7 @@
  *
  * Untuk menambah tool baru: tambah satu objek dalam senarai TOOLS di bawah.
  */
+import { bersihkanTeksPelawat, namaSah } from "@/lib/guardrails";
 import { z } from "zod";
 import { cariPengetahuan } from "@/lib/rag/knowledge";
 import { senaraiProjekSemua, keKad } from "@/lib/projects";
@@ -17,7 +18,7 @@ import { nilaiJobDescription } from "@/lib/kerjaya/padanan";
 import { kalendarDisetup, slotKosong, ciptaAcara, paparSlot } from "@/lib/kalendar";
 import { emelDisetup, hantarEmel } from "@/lib/emel";
 import { ciptaPeringatan } from "@/lib/peringatan";
-import { bacaJSON, tulisJSON } from "@/lib/store";
+import { bacaJSON, tulisJSON, kira } from "@/lib/store";
 import { tarikhMY, paparMY } from "@/lib/masa";
 
 export type { HasilTool };
@@ -113,7 +114,9 @@ const maklumDarwishTool = buatTool({
     ]
       .filter(Boolean)
       .join("\n");
-    const dihantar = telegramDisetup() ? await hantarTelegram(teks) : false;
+    // Had notifikasi Telegram sehari (elak Telegram Darwish dibanjiri spam). Lead tetap disimpan.
+    const bilHariIni = await kira(`had-lead-${tarikhMY()}`, 86400).catch(() => 0);
+    const dihantar = telegramDisetup() && bilHariIni <= HAD_LEAD_SEHARI ? await hantarTelegram(teks) : false;
 
     // 3. Jujur dengan pelawat tentang status sebenar
     if (dihantar) return { untukLLM: { status: "dihantar" } };
@@ -179,6 +182,8 @@ const semakSlotTool = buatTool({
   },
 });
 
+const HAD_LEAD_SEHARI = 20;
+
 const tempahInterviewTool = buatTool({
   nama: "tempah_interview",
   penerangan: "Tempah slot interview/meeting dengan Darwish. Guna HANYA selepas pelawat memilih slot dari semak_slot_interview DAN memberi nama serta emel.",
@@ -189,8 +194,13 @@ const tempahInterviewTool = buatTool({
     syarikat: z.string().max(80).optional(),
     tujuan: z.string().max(300).optional().describe("Contoh: interview jawatan Junior Developer"),
   }),
-  async jalankan({ slot, nama, emel, syarikat, tujuan }) {
+  async jalankan({ slot, nama: namaMentah, emel, syarikat: syarikatMentah, tujuan: tujuanMentah }) {
     if (!kalendarDisetup()) return { untukLLM: { status: "tidak tersedia" } };
+    // Medan bebas dari pelawat masuk ke kalendar & emel: tolak pautan/simbol (elak spam dari Gmail Darwish)
+    if (!namaSah(namaMentah)) return { untukLLM: { ralat: "Nama tidak sah. Minta nama sebenar pelawat (huruf sahaja, tanpa pautan)." } };
+    const nama = bersihkanTeksPelawat(namaMentah, 80);
+    const syarikat = syarikatMentah ? bersihkanTeksPelawat(syarikatMentah, 80) || undefined : undefined;
+    const tujuan = tujuanMentah ? bersihkanTeksPelawat(tujuanMentah, 200) || undefined : undefined;
     const mula = new Date(slot);
     if (Number.isNaN(mula.getTime()) || mula.getTime() < Date.now() + 3600_000) {
       return { untukLLM: { ralat: "Slot tidak sah atau sudah terlalu hampir. Semak slot semula." } };

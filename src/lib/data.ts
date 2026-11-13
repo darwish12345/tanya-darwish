@@ -7,6 +7,7 @@
  */
 import { bacaJSON, tulisJSON, tambahKeSenarai, bacaSenarai } from "@/lib/store";
 import { tarikhMY } from "@/lib/masa";
+import { cariPadanan } from "@/lib/teks";
 
 export function idPendek(): string {
   return Math.random().toString(36).slice(2, 7);
@@ -22,10 +23,12 @@ export type Keutamaan = {
   jamCarianKerja: string;
   jamLaporan: string;
   waktuInterview: { hari: number[]; mula: string; tamat: string }; // untuk tempahan melalui web
+  versi?: number; // untuk migrasi tetapan lama
 };
 
 export const KEUTAMAAN_LALAI: Keutamaan = {
-  jawatan: ["Junior Software Engineer", "Web Developer", "AI Engineer"],
+  // Jawatan fresh grad / entry-level (maksimum 4 supaya kuota JSearch percuma cukup sebulan)
+  jawatan: ["Junior Software Engineer", "Junior Web Developer", "Junior AI Engineer", "Junior Software Tester QA"],
   lokasi: "Malaysia",
   sumber: ["LinkedIn", "Indeed", "Glassdoor"],
   catatan: [],
@@ -33,11 +36,23 @@ export const KEUTAMAAN_LALAI: Keutamaan = {
   jamCarianKerja: "08:00",
   jamLaporan: "21:00",
   waktuInterview: { hari: [1, 2, 3, 4, 5], mula: "10:00", tamat: "17:00" },
+  versi: 2,
 };
 
 export async function bacaKeutamaan(): Promise<Keutamaan> {
   // Gabung dengan nilai lalai supaya medan baru wujud walaupun data lama disimpan sebelum medan itu ditambah
-  return { ...KEUTAMAAN_LALAI, ...(await bacaJSON<Partial<Keutamaan>>("keutamaan", {})) };
+  const tersimpan = await bacaJSON<Partial<Keutamaan> | null>("keutamaan", null);
+  if (!tersimpan) return { ...KEUTAMAAN_LALAI };
+  const k = { ...KEUTAMAAN_LALAI, ...tersimpan };
+  // Migrasi v2 (Nov 2026): Darwish kini mencari kerja FRESH GRAD (bukan internship), dan
+  // tetapan sumber "Indeed sahaja" yang tersimpan akibat pepijat lama dikembalikan kepada lalai.
+  if ((tersimpan.versi ?? 1) < 2) {
+    k.jawatan = KEUTAMAAN_LALAI.jawatan;
+    if (k.sumber.length === 1 && k.sumber[0].toLowerCase() === "indeed") k.sumber = KEUTAMAAN_LALAI.sumber;
+    k.versi = 2;
+    await simpanKeutamaan(k);
+  }
+  return k;
 }
 export const simpanKeutamaan = (k: Keutamaan) => tulisJSON("keutamaan", k);
 
@@ -144,11 +159,8 @@ export async function kemasPeringatan(id: string, ubah: Partial<Peringatan>): Pr
 }
 /** Cari peringatan AKTIF ikut id atau padanan teks (contoh "air" → "Minum air"). */
 export async function cariPeringatanAktif(rujukan: string): Promise<Peringatan[]> {
-  const r = rujukan.trim().toLowerCase();
   const aktif = (await bacaPeringatan()).filter((p) => p.status === "aktif");
-  const ikutId = aktif.filter((p) => p.id === r);
-  if (ikutId.length) return ikutId;
-  return aktif.filter((p) => p.teks.toLowerCase().includes(r) || r.includes(p.teks.toLowerCase()));
+  return cariPadanan(aktif, rujukan, (p) => p.teks);
 }
 /** Peringatan yang sudah tiba masanya tetapi belum dihantar (sandaran cron). */
 export async function peringatanTiba(kini = new Date()): Promise<Peringatan[]> {
@@ -196,11 +208,17 @@ export async function padamTugasan(id: string): Promise<boolean> {
   return baki.length !== semua.length;
 }
 export async function cariTugasanBelum(rujukan: string): Promise<Tugasan[]> {
-  const r = rujukan.trim().toLowerCase();
   const belum = (await bacaTugasan()).filter((t) => t.status === "belum");
-  const ikutId = belum.filter((t) => t.id === r);
-  if (ikutId.length) return ikutId;
-  return belum.filter((t) => t.tajuk.toLowerCase().includes(r) || r.includes(t.tajuk.toLowerCase()));
+  return cariPadanan(belum, rujukan, (t) => t.tajuk);
+}
+
+/** Cari arahan bertarikh yang akan datang ikut kata kunci, sumber atau tarikh ("linkedin", "esok", "2026-11-15"). */
+export async function cariArahanAkanDatang(rujukan: string, hariIni: string): Promise<Arahan[]> {
+  const akan = (await bacaArahan()).filter((a) => a.tarikh >= hariIni);
+  if (/^(semua|all)$/i.test(rujukan.trim())) return akan;
+  const tarikh = rujukan.match(/\d{4}-\d{2}-\d{2}/)?.[0];
+  if (tarikh) return akan.filter((a) => a.tarikh === tarikh);
+  return cariPadanan(akan, rujukan, (a) => `${a.arahan} ${(a.sumber ?? []).join(" ")} ${a.jenis.replace(/_/g, " ")}`);
 }
 
 // ── Leads dari laman web ──────────────────────────────────────────────────

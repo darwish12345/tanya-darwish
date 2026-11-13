@@ -42,7 +42,11 @@ type Kes = {
   tak_padan?: string[];
   bahasa?: "en" | "ms";
   keadaan?: Keadaan[];
-  sedia?: { peringatan?: { selepas_minit: number; teks: string }; tugasan?: { tajuk: string } }[];
+  sedia?: {
+    peringatan?: { selepas_minit: number; teks: string };
+    tugasan?: { tajuk: string };
+    arahan?: { hari: number; jenis: "langkau_sumber" | "hanya_sumber" | "langkau_carian" | "nota"; sumber?: string[]; teks: string };
+  }[];
 };
 type Hasil = { id: string; kategori: string; agent: string; lulus: boolean; gagal: string[]; tools: string[]; jawapan: string; ms: number };
 
@@ -132,6 +136,10 @@ async function main() {
         const s = await data.sumberBerkuatKuasa(esok);
         return s.sumber.some((x) => x.toLowerCase() === String(k.sumber).toLowerCase()) ? `${k.sumber} masih dicari esok` : null;
       }
+      case "sumber_esok_dengan": {
+        const s = await data.sumberBerkuatKuasa(esok);
+        return s.sumber.some((x) => x.toLowerCase() === String(k.sumber).toLowerCase()) ? null : `${k.sumber} tidak dicari esok (arahan tidak dipadam)`;
+      }
       case "sumber_esok_hanya": {
         const s = await data.sumberBerkuatKuasa(esok);
         return s.sumber.length === 1 && s.sumber[0].toLowerCase() === String(k.sumber).toLowerCase() ? null : `sumber esok = ${s.sumber.join(",")}`;
@@ -169,6 +177,7 @@ async function main() {
     for (const s of k.sedia ?? []) {
       if (s.peringatan) await ciptaPeringatan(new Date(Date.now() + s.peringatan.selepas_minit * 60_000), s.peringatan.teks);
       if (s.tugasan) await data.tambahTugasan({ tajuk: s.tugasan.tajuk, keutamaan: "biasa" });
+      if (s.arahan) await data.tambahArahan({ tarikh: tambahHari(tarikhMY(), s.arahan.hari), jenis: s.arahan.jenis, sumber: s.arahan.sumber, arahan: s.arahan.teks });
     }
 
     const mula = Date.now();

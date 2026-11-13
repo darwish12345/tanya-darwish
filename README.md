@@ -65,7 +65,7 @@ flowchart LR
 
 - **Guardrails:** per-IP rate limit, input length limits, prompt-injection rules (tool results are data, not instructions), output sanitiser (zero-width characters, runaway repetition), owner-only Telegram, secret-token webhooks.
 - **Tests (no network):** `npm test` runs the web agent, personal agent and career pipeline against a fake Telegram server, a fake JSearch server and a scripted LLM. They include regression tests for each bug found in real use.
-- **Evals (real LLM):** `evals/kes.json` holds 56 cases across facts, honesty/anti-fabrication, language, security, off-topic, leads, job-match, booking, reminders, tasks and dated instructions. Checks cover which tools were called, regexes on the answer, reply language, and **the resulting state** (e.g. was the reminder stored for exactly 07:00 tomorrow?). They run in GitHub Actions and the score is shown on [/statistik](https://tanya-darwish.netlify.app/statistik). Latest report: [`evals/laporan-terkini.md`](evals/laporan-terkini.md).
+- **Evals (real LLM):** `evals/kes.json` holds 62 cases across facts, honesty/anti-fabrication, language, security, off-topic, leads, job-match, booking, reminders, tasks and dated instructions. Checks cover which tools were called, regexes on the answer, reply language, and **the resulting state** (e.g. was the reminder stored for exactly 07:00 tomorrow?). They run in GitHub Actions and the score is shown on [/statistik](https://tanya-darwish.netlify.app/statistik). Latest report: [`evals/laporan-terkini.md`](evals/laporan-terkini.md).
 - **CI:** lint, typecheck, tests and build on every push.
 
 ## Cost: RM0 / month
@@ -115,4 +115,4 @@ Without Upstash the app stores data in `.data/`. Every optional integration (Tel
 
 ## Author
 
-Muhammad Darwish · Software Engineering intern · [GitHub](https://github.com/darwish12345) · [Live agent](https://tanya-darwish.netlify.app)
+Muhammad Darwish · Final-year Software Engineering student, Universiti Malaysia Terengganu (graduating Feb 2027) · open to fresh graduate roles · [GitHub](https://github.com/darwish12345) · [Live agent](https://tanya-darwish.netlify.app)

@@ -28,8 +28,9 @@ export default function Home() {
           <p className="text-sm font-medium text-indigo-600">Software Engineering · Agentic AI</p>
           <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Hai, saya Darwish.</h1>
           <p className="max-w-md text-base leading-relaxed text-zinc-600 dark:text-zinc-400">
-            Pelatih Software Engineering yang membina perisian dan agent AI. Daripada membaca CV panjang, tanya agent saya
-            terus. Ia menjawab berdasarkan projek, sijil dan pengalaman sebenar saya, lengkap dengan bukti.
+            Bakal graduan Kejuruteraan Perisian UMT (Februari 2027) yang membina perisian dan agent AI, kini mencari jawatan fresh
+            grad. Daripada membaca CV panjang, tanya agent saya terus. Ia menjawab berdasarkan projek, sijil dan pengalaman
+            sebenar saya, lengkap dengan bukti.
           </p>
         </section>
         <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-center">

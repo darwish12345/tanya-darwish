@@ -60,19 +60,24 @@ function bacaFailResume(): ResumeInduk {
 export async function bacaResumeInduk(): Promise<ResumeInduk> {
   const asas = bacaFailResume();
   const dariCV = await bacaJSON<Partial<ResumeInduk>>("resume-induk", {});
-  // Bahagian dari CV yang diimport menggantikan bahagian fail jika ada isinya
+  // content/resume.json ialah sumber utama (disemak Darwish). Data CV yang diimport melalui Telegram
+  // hanya MENGISI bahagian yang masih kosong / TODO dalam fail.
+  const asasBersih = bersihkanResume(asas);
   const gabung: ResumeInduk = { ...asas };
-  for (const k of ["ringkasan", "tajuk", "pengalaman", "projek", "pendidikan", "sijil"] as const) {
+  for (const k of ["ringkasan", "tajuk", "pengalaman", "pendidikan", "sijil"] as const) {
+    const dlmFail = asasBersih[k];
+    const kosong = Array.isArray(dlmFail) ? dlmFail.length === 0 : !dlmFail;
     const v = dariCV[k];
-    if (Array.isArray(v) ? v.length : v) (gabung as Record<string, unknown>)[k] = v;
+    if (kosong && (Array.isArray(v) ? v.length : v)) (gabung as Record<string, unknown>)[k] = v;
   }
   if (dariCV.kemahiran && Object.keys(dariCV.kemahiran).length) {
-    gabung.kemahiran = { ...asas.kemahiran, ...dariCV.kemahiran };
+    gabung.kemahiran = { ...dariCV.kemahiran, ...asas.kemahiran };
   }
-  // Projek dari CV tidak memadam projek dalam fail (contoh Tanya Darwish)
+  // Projek dari CV hanya dimasukkan jika ada pautan GitHub (projek tanpa bukti kod tidak dipaparkan)
   if (dariCV.projek?.length) {
-    const nama = new Set(dariCV.projek.map((p) => p.nama.toLowerCase()));
-    gabung.projek = [...dariCV.projek, ...asas.projek.filter((p) => !nama.has(p.nama.toLowerCase()))];
+    const nama = new Set(asas.projek.map((p) => p.nama.toLowerCase()));
+    const bertaut = dariCV.projek.filter((p) => /github\.com\//i.test(p.pautan ?? "") && !nama.has(p.nama.toLowerCase()));
+    gabung.projek = [...asas.projek, ...bertaut];
   }
   gabung.hubungan = {
     emel: process.env.RESUME_EMEL?.trim() || process.env.GMAIL_USER?.trim() || dariCV.hubungan?.emel,

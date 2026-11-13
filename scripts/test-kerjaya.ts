@@ -45,6 +45,7 @@ const IKLAN_JSEARCH = [
 
 async function main() {
   const pertanyaanJSearch: string[] = [];
+  const keperluanJSearch: string[] = [];
   // Kalendar Google palsu: sahkan tandatangan JWT (RS256) dengan kunci awam sebenar
   const { generateKeyPairSync, createVerify } = await import("node:crypto");
   const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -53,6 +54,7 @@ async function main() {
   const tg = await pelayanPalsu({
     "/search": (url) => {
       pertanyaanJSearch.push(url.searchParams.get("query") ?? "");
+      keperluanJSearch.push(url.searchParams.get("job_requirements") ?? "");
       return { status: "OK", data: IKLAN_JSEARCH };
     },
     "/token": (_u, badan) => {
@@ -105,6 +107,25 @@ async function main() {
   assert.equal(terus.length, 3);
   ok("klien JSearch (pelayan palsu)");
 
+  console.log("Fresh grad");
+  {
+    const { sesuaiFreshGrad } = await import("../src/lib/kerjaya/jsearch");
+    const k = (tajuk: string, penerangan = "") => ({ ...iklan[0], tajuk, penerangan });
+    assert.ok(!sesuaiFreshGrad(k("Software Engineer Intern")), "internship dibuang");
+    assert.ok(!sesuaiFreshGrad(k("Senior Java Developer")));
+    assert.ok(!sesuaiFreshGrad(k("Java Developer", "Requirements: minimum 5 years of experience in Spring")));
+    assert.ok(sesuaiFreshGrad(k("Graduate Trainee - IT")), "graduate trainee dikekalkan");
+    assert.ok(sesuaiFreshGrad(k("Junior Developer", "1-3 years experience; fresh graduates are encouraged to apply")));
+    // Migrasi tetapan lama: jawatan internship lama + sumber "Indeed sahaja" (pepijat lama)
+    const { tulisJSON: tulis } = await import("../src/lib/store");
+    await tulis("keutamaan", { ...data.KEUTAMAAN_LALAI, versi: undefined, jawatan: ["Software Engineering Intern"], sumber: ["Indeed"] });
+    const k2 = await data.bacaKeutamaan();
+    assert.deepEqual(k2.jawatan, data.KEUTAMAAN_LALAI.jawatan);
+    assert.deepEqual(k2.sumber, ["LinkedIn", "Indeed", "Glassdoor"]);
+    assert.equal(k2.jawatan.length, 4);
+  }
+  ok("penapis fresh grad (buang intern/senior/3+ tahun) + migrasi tetapan lama");
+
   console.log("Pemburu kerja → digest Telegram");
   const tarikh = tarikhMY();
   await data.tambahArahan({ tarikh, jenis: "langkau_sumber", sumber: ["LinkedIn"], arahan: "Jangan cari di LinkedIn hari ini" });
@@ -114,6 +135,7 @@ async function main() {
   assert.equal(await cariSatuJawatan("Junior Software Engineer", tarikh), 2, "DEF (LinkedIn sahaja) ditapis keluar");
   assert.equal(await cariSatuJawatan("AI Engineer", tarikh), 2, "carian kedua: calon sama tidak digandakan");
   assert.match(pertanyaanJSearch[1], /Junior Software Engineer in Malaysia/);
+  assert.equal(keperluanJSearch[1], "under_3_years_experience,no_experience", "JSearch ditapis untuk fresh grad");
 
   const { llm: llmNilai } = llmPalsu([
     jawab(
@@ -251,6 +273,11 @@ async function main() {
     assert.ok((jahat.untukLLM as { ralat?: string }).ralat, "slot luar waktu interview ditolak");
     assert.equal(acaraDicipta.length, 0);
 
+    // Nama berisi pautan (cubaan guna emel pengesahan untuk spam) → ditolak
+    const spam = await jalankanTool("tempah_interview", JSON.stringify({ slot: gabungMY(t, "11:00")!.toISOString(), nama: "WIN RM5000 visit http://spam.xyz", emel: "mangsa@example.com" }));
+    assert.match(String((spam.untukLLM as { ralat?: string }).ralat), /Nama tidak sah/);
+    assert.equal(acaraDicipta.length, 0);
+
     const pilihan = gabungMY(t, "11:00")!.toISOString();
     const tempah = await jalankanTool("tempah_interview", JSON.stringify({ slot: pilihan, nama: "Sarah", emel: "sarah@abctech.example", syarikat: "ABC Tech", tujuan: "Interview Junior Developer" }));
     assert.equal((tempah.untukLLM as { status?: string }).status, "ditempah");
@@ -262,7 +289,7 @@ async function main() {
     assert.ok(tg.panggilan.some((x) => x.kaedah === "sendMessage" && String(x.badan?.text).includes("Interview baru ditempah")));
     assert.ok((await data.bacaLeads()).some((l) => l.nama === "Sarah"), "tempahan direkod sebagai lead");
   }
-  ok("tempah interview: JWT RS256, slot sibuk ditapis, slot luar waktu ditolak, acara + peringatan + notifikasi");
+  ok("tempah interview: JWT RS256, slot sibuk ditapis, slot luar waktu & nama spam ditolak, acara + peringatan + notifikasi");
 
   tg.tutup();
   console.log(`\n${jumlahLulus()} ujian kerjaya lulus.`);

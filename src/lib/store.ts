@@ -22,6 +22,8 @@ type Storan = {
   tulis(kunci: string, data: unknown): Promise<void>;
   tambahSenarai(kunci: string, item: unknown, had: number): Promise<void>;
   bacaSenarai<T>(kunci: string): Promise<T[]>;
+  /** Tambah 1 pada pembilang yang luput selepas `saat` saat. Pulangkan nilai baru. */
+  kira(kunci: string, saat: number): Promise<number>;
 };
 
 /** Gagal dengan cepat daripada tergantung (permintaan yang tergantung = pengguna menunggu lama). */
@@ -82,6 +84,12 @@ function storanUpstash(url: string, token: string): Storan {
       const v = await arahan<string[]>(["LRANGE", AWALAN + k, 0, -1]);
       return (v ?? []).map((s) => JSON.parse(s) as T);
     },
+    // INCR atomik: had kadar tepat walaupun Netlify menjalankan banyak salinan server serentak
+    async kira(k: string, saat: number) {
+      const n = await arahan<number>(["INCR", AWALAN + k]);
+      if (n === 1) await arahan(["EXPIRE", AWALAN + k, saat]);
+      return n;
+    },
   };
 }
 
@@ -108,6 +116,13 @@ function storanNetlify(): Storan {
       const s = (await baca<unknown[]>(k)) ?? [];
       s.push(item);
       await tulis(k, s.slice(-had));
+    },
+    async kira(k, saat) {
+      const lama = await baca<{ n: number; tamat: number }>(k);
+      const kini = Date.now();
+      const n = lama && lama.tamat > kini ? lama.n + 1 : 1;
+      await tulis(k, { n, tamat: lama && lama.tamat > kini ? lama.tamat : kini + saat * 1000 });
+      return n;
     },
     async bacaSenarai<T>(k: string) {
       return ((await baca<T[]>(k)) ?? []) as T[];
@@ -138,6 +153,13 @@ function storanFail(): Storan {
       const s = (await baca<unknown[]>(k)) ?? [];
       s.push(item);
       await tulis(k, s.slice(-had));
+    },
+    async kira(k, saat) {
+      const lama = await baca<{ n: number; tamat: number }>(k);
+      const kini = Date.now();
+      const n = lama && lama.tamat > kini ? lama.n + 1 : 1;
+      await tulis(k, { n, tamat: lama && lama.tamat > kini ? lama.tamat : kini + saat * 1000 });
+      return n;
     },
     async bacaSenarai<T>(k: string) {
       return ((await baca<T[]>(k)) ?? []) as T[];
@@ -180,4 +202,9 @@ export async function tambahKeSenarai<T>(kunci: string, item: T, had = 500): Pro
 /** Baca senarai yang ditulis dengan tambahKeSenarai(). */
 export async function bacaSenarai<T>(kunci: string): Promise<T[]> {
   return dapatkanStoran().bacaSenarai<T>(kunci);
+}
+
+/** Pembilang dengan tempoh luput (untuk had kadar). */
+export async function kira(kunci: string, saat: number): Promise<number> {
+  return dapatkanStoran().kira(kunci, saat);
 }

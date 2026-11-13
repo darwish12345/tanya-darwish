@@ -25,9 +25,11 @@ export async function POST(req: Request) {
   }
 
   // Guardrail 1: had kadar ikut IP
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "tempatan";
-  if (!semakHadKadar(ip)) {
-    return Response.json({ ralat: "Terlalu banyak mesej. Cuba lagi selepas sejam." }, { status: 429 });
+  // Netlify menetapkan x-nf-client-connection-ip sendiri (tidak boleh dipalsukan pelawat seperti x-forwarded-for)
+  const ip = req.headers.get("x-nf-client-connection-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "tempatan";
+  const had = await semakHadKadar(ip);
+  if (!had.ok) {
+    return Response.json({ ralat: had.mesej }, { status: 429 });
   }
 
   // Guardrail 2: validasi input

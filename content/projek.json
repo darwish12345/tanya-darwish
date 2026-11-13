@@ -27,18 +27,27 @@
     "butiran": "Gelung agent ditulis sendiri: LLM memilih tool, kod menjalankannya, hasil dihantar semula sehingga jawapan siap. Pengetahuan dicari dengan RAG. Memori jangka panjang di Upstash Redis, kerja latar dan peringatan tepat-masa melalui Upstash QStash. Agent Telegram mengurus peringatan (termasuk berulang), tugasan dengan amaran deadline, carian kerja harian dengan skor padanan, resume ATS dan cover letter khas yang hanya dihantar selepas Darwish tekan butang Hantar. Disertakan guardrails, ujian regresi dan eval automatik. Kos operasi RM0 sebulan."
   },
   {
-    "id": "contoh-projek",
-    "draf": true,
-    "nama": "TODO: Nama projek seterusnya",
-    "ringkasan": "TODO: Satu ayat tentang projek ini.",
-    "peranan": "TODO",
-    "tempoh": "TODO",
-    "tech": [],
-    "tag": [],
+    "id": "personal-finance",
+    "nama": "Personal Finance System",
+    "ringkasan": "Sistem web untuk mengurus pendapatan, perbelanjaan dan bajet peribadi.",
+    "peranan": "Pembangun",
+    "tempoh": "",
+    "tech": [
+      "Java",
+      "JSP",
+      "Servlet",
+      "MySQL",
+      "HTML/CSS",
+      "JavaScript"
+    ],
+    "tag": [
+      "web",
+      "java"
+    ],
     "link": {
-      "repo": "",
+      "repo": "https://github.com/darwish12345/Personal-Finance",
       "demo": ""
     },
-    "butiran": "TODO: Masalah, penyelesaian, sumbangan anda, cabaran, hasil. Projek dengan \"draf\": true tidak dipaparkan kepada agent."
+    "butiran": "Aplikasi web Java EE: pengguna merekod pendapatan dan perbelanjaan serta menetapkan bajet. Backend ditulis dengan Java Servlet dan JSP mengikut seni bina MVC, dengan MySQL untuk penyimpanan data."
   }
 ]

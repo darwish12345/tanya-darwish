@@ -51,3 +51,31 @@ export function cariEmel(teks: string): string | null {
   const m = teks.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
   return m ? m[0] : null;
 }
+
+// ── Padanan kata kunci untuk rujukan semula jadi ("peringatan minum air tu" → "Minum air") ──
+const KATA_ABAI = new Set(
+  "yang tu itu ni ini saya aku je sahaja la lah tolong please the a an my to for of and dan untuk pada di ke kat dengan peringatan reminder tugasan task arahan instruction pengetahuan batal batalkan cancel padam delete buang remove hapus tadi semalam".split(" "),
+);
+const kataPenting = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 2 && !KATA_ABAI.has(w));
+
+/**
+ * Cari item yang sepadan dengan rujukan bebas. Keutamaan: id tepat → semua kata penting ada →
+ * mana-mana kata penting ada. Pulangkan senarai kosong jika tiada langsung.
+ */
+export function cariPadanan<T extends { id: string }>(senarai: T[], rujukan: string, teksDari: (x: T) => string): T[] {
+  const r = rujukan.trim();
+  const ikutId = senarai.filter((x) => x.id === r);
+  if (ikutId.length) return ikutId;
+  const kata = kataPenting(r);
+  if (!kata.length) return [];
+  const teks = senarai.map((x) => ({ x, t: ` ${kataPenting(teksDari(x)).join(" ")} ` }));
+  const semua = teks.filter(({ t }) => kata.every((k) => t.includes(` ${k}`)));
+  if (semua.length) return semua.map(({ x }) => x);
+  return teks.filter(({ t }) => kata.some((k) => t.includes(` ${k}`))).map(({ x }) => x);
+}

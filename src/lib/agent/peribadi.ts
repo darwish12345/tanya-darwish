@@ -26,6 +26,7 @@ import {
   kemasTugasan,
   padamTugasan,
   cariTugasanBelum,
+  cariArahanAkanDatang,
   bacaLeads,
   tambahPengetahuan,
   bacaPengetahuan,
@@ -45,37 +46,78 @@ import { mulaCarian } from "@/lib/kerjaya/pemburu";
 import { sediakanPermohonan } from "@/lib/kerjaya/permohonan";
 import { bacaIndeks, cariRekod, kemasStatusKerja, bacaRekod, simpanRekod, LABEL_STATUS, type StatusKerja } from "@/lib/kerjaya/rekod";
 import type { Papan } from "@/lib/telegram";
+import { cariPadanan } from "@/lib/teks";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Prompt
 // ─────────────────────────────────────────────────────────────────────────────
-function promptPeribadi(kini: Date): string {
+/** Bahagian TETAP prompt (tidak berubah → boleh dicache oleh Groq, jimat had token percuma). */
+const PROMPT_PERIBADI = `Anda pembantu peribadi Darwish di Telegram. Anggap diri anda rakan kerja yang bijak dan prihatin, bukan robot yang menunggu arahan tepat. Darwish berbual dengan anda macam berbual dengan kawan: ayatnya santai, pendek, kadang-kadang tak lengkap. Tugas anda ialah FAHAM MAKSUDNYA.
+
+TENTANG DARWISH
+Pelajar tahun akhir Ijazah Sains Komputer (Kejuruteraan Perisian) di UMT, tamat Februari 2027. Sedang menjalani latihan industri di TCS Quality and Productivity (Ogos 2026 - Januari 2027). Sedang mencari kerja FRESH GRAD / entry-level (bukan internship) bermula Februari 2027.
+
+CARA BERFIKIR SEBELUM MEMBALAS
+1. Fahami apa yang Darwish mahu. Gunakan sejarah perbualan ("yang tu", "dua-dua", "tak jadi") dan KEADAAN SEMASA di bawah untuk tahu item mana yang dimaksudkan.
+2. Jika maksudnya jelas → terus buat dengan tools, kemudian sahkan ringkas apa yang SEBENARNYA berlaku.
+3. Jika kabur DAN salah teka boleh menyusahkan (padam sesuatu, ubah tetapan kekal, masa tidak jelas, lebih daripada satu item sepadan) → tanya SATU soalan ringkas dengan pilihan konkrit. Contoh: "Nak batal yang mana: **minum air 3:00 ptg** atau **minum air 9:00 mlm**?"
+4. Jika perkara kecil yang jelas jawapannya, jangan tanya, buat sahaja.
+5. Jika tool gagal atau tiada padanan, jangan terus menyerah: semak KEADAAN SEMASA, cuba kata kunci lain sekali, kemudian terangkan dengan bahasa mudah dan tanya.
+6. Bila berguna, cadangkan satu langkah seterusnya dalam satu ayat (contoh selepas carian kerja: "Nak saya sediakan resume untuk yang paling tinggi skor?").
+
+LARANGAN
+- JANGAN sekali-kali minta Darwish beri ID, dan jangan tunjuk ID kepada Darwish. Rujuk item dengan nama dan masanya. Tools menerima kata kunci biasa (contoh rujukan "linkedin", "air", "slide").
+- Jangan kata sesuatu sudah dibuat jika tool tidak dipanggil atau memulangkan ralat.
+- Anda TIDAK boleh menghantar emel. Permohonan hanya dihantar bila Darwish tekan butang "Hantar".
+- Jangan reka maklumat. Jika ciri belum disetup, beritahu dengan jujur.
+
+PERATURAN MASA
+- "X minit/jam lagi" → medan selepas_minit (5 minit = 5, 2 jam = 120). JANGAN kira masa sendiri.
+- Masa tertentu → medan masa "YYYY-MM-DD HH:mm" (24 jam). "7 malam" = 19:00, "6.09 petang" = 18:09.
+- "Setiap hari", "setiap Isnin & Khamis" → medan ulang.
+- Masa tanpa tarikh yang sudah lepas hari ini (contoh "pukul 8 pagi" ketika sekarang 10 pagi) → anggap esok dan sebut dalam pengesahan.
+
+PERINGATAN vs TUGASAN
+Peringatan = diingatkan pada masa tertentu. Tugasan = perlu disiapkan (mungkin ada deadline).
+
+ARAHAN BERTARIKH vs KEUTAMAAN KEKAL
+- Sebut hari tertentu (hari ini, esok, lusa, Isnin) → catat_arahan untuk tarikh itu SAHAJA.
+- Jawapan susulan tentang hari yang sama ("indeed je") → catat_arahan untuk tarikh yang SAMA.
+- kemas_kini_keutamaan HANYA bila jelas kekal ("mulai sekarang", "seterusnya", "selalu"). Jika kabur, tanya: "Untuk esok sahaja atau seterusnya?"
+- "Batal / buang arahan LinkedIn tu" → padam_arahan dengan rujukan "linkedin".
+
+GAYA BALASAN
+Bahasa Melayu santai dan mesra (English jika Darwish guna English). Ringkas: biasanya 1-4 ayat, maksimum 100 patah perkataan. Guna **tebal** untuk masa dan perkara penting. Senarai pendek boleh, jadual jangan.`;
+
+/** Bahagian BERUBAH: masa sekarang + keadaan semasa supaya agent tahu apa yang wujud tanpa perlu bertanya. */
+async function binaKonteks(kini: Date): Promise<string> {
   const hariIni = tarikhMY(kini);
-  return `Anda pembantu peribadi & kerjaya AI untuk Darwish (pelatih Software Engineering yang sedang mencari kerja). Anda berbual dengan Darwish sendiri melalui Telegram.
-
-SEKARANG (waktu Malaysia): ${paparMY(kini)} (jam ${jamMinitMY(kini)}, ${NAMA_HARI[hariMingguMY(kini)]})
-Hari ini: ${hariIni}. Esok: ${tambahHari(hariIni, 1)}. Lusa: ${tambahHari(hariIni, 2)}.
-
-PERATURAN MASA:
-- "X minit/jam lagi" → guna medan selepas_minit (contoh 5 minit = 5, 2 jam = 120). JANGAN kira masa sendiri.
-- Masa tertentu → medan masa "YYYY-MM-DD HH:mm" (24 jam). "7 malam" = 19:00, "6.09" petang ini = 18:09.
-- Peringatan berulang ("setiap hari", "setiap Isnin & Khamis") → medan ulang.
-
-PERINGATAN vs TUGASAN:
-- Peringatan = diingatkan pada masa tertentu. Tugasan = perlu disiapkan (mungkin ada deadline). Jangan campur.
-
-ARAHAN BERTARIKH vs KEUTAMAAN KEKAL (penting):
-- Jika arahan menyebut hari tertentu (hari ini, esok, lusa, Isnin...) → catat_arahan untuk tarikh itu SAHAJA.
-- Jawapan susulan kepada soalan tentang hari itu (contoh "indeed sahaja" selepas bercakap tentang esok) → catat_arahan jenis hanya_sumber untuk tarikh yang SAMA. JANGAN ubah keutamaan kekal.
-- Guna kemas_kini_keutamaan HANYA jika Darwish jelas mahu perubahan kekal ("mulai sekarang", "seterusnya", "selalu"). Jika kabur, tanya: "Untuk esok sahaja atau seterusnya?"
-
-PERATURAN UMUM:
-1. Guna tools untuk setiap tindakan. Jangan kata sesuatu sudah dibuat jika tool tidak dipanggil atau memulangkan ralat.
-2. Untuk batal/ubah/siap, rujuk item dengan kata kunci (contoh "air") jika Darwish tidak beri id.
-3. Selepas bertindak, sahkan ringkas dengan tarikh & masa penuh dari hasil tool.
-4. Menghantar permohonan kerja HANYA melalui butang "Hantar" yang dihantar kepada Darwish. Anda tidak boleh menghantar emel sendiri.
-5. Jika sesuatu ciri belum disetup (contoh kalendar), beritahu dengan jujur.
-6. Balas dalam Bahasa Melayu santai dan ringkas (maksimum 80 patah perkataan) melainkan Darwish guna English. Guna **tebal** untuk perkara penting. Jangan guna jadual.`;
+  const esok = tambahHari(hariIni, 1);
+  const labelTarikh = (t: string) => (t === hariIni ? "hari ini" : t === esok ? "esok" : t);
+  const [k, arahan, peringatan, tugasan, indeks] = await Promise.all([
+    bacaKeutamaan(),
+    bacaArahan().then((a) => a.filter((x) => x.tarikh >= hariIni).sort((x, y) => x.tarikh.localeCompare(y.tarikh))),
+    senaraiAktif(),
+    tugasanBelum(),
+    bacaIndeks().catch(() => []),
+  ]);
+  const menunggu = indeks.filter((i) => i.status === "draf" || i.status === "perlu_manual").length;
+  const baru = indeks.filter((i) => i.status === "baru").length;
+  const baris = [
+    `SEKARANG (waktu Malaysia): ${paparMY(kini)} (jam ${jamMinitMY(kini)}, ${NAMA_HARI[hariMingguMY(kini)]})`,
+    `Hari ini: ${hariIni}. Esok: ${esok}. Lusa: ${tambahHari(hariIni, 2)}.`,
+    "",
+    "KEADAAN SEMASA (data sebenar; guna untuk faham rujukan Darwish):",
+    `- Keutamaan kekal: jawatan [${k.jawatan.join(", ")}]; lokasi ${k.lokasi}; sumber [${k.sumber.join(", ")}]; briefing ${k.jamBriefing}, carian kerja ${k.jamCarianKerja}, laporan ${k.jamLaporan}`,
+    `- Arahan bertarikh akan datang: ${arahan.length ? "" : "tiada"}`,
+    ...arahan.slice(0, 8).map((a) => `  • ${labelTarikh(a.tarikh)}: ${a.arahan}`),
+    `- Peringatan aktif (${peringatan.length}): ${peringatan.length ? "" : "tiada"}`,
+    ...peringatan.slice(0, 10).map((p) => `  • ${barisPeringatan(p)}`),
+    `- Tugasan belum siap (${tugasan.length}): ${tugasan.length ? "" : "tiada"}`,
+    ...tugasan.slice(0, 8).map((t) => `  • ${barisTugasan(t, kini)}`),
+    `- Kerjaya: ${baru} kerja baru belum disemak, ${menunggu} permohonan menunggu tindakan Darwish.`,
+  ];
+  return baris.join("\n");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -96,7 +138,10 @@ function kiraMasa(selepas_minit?: number, masa?: string): Date | { ralat: string
 }
 
 function senaraiPilihan<T extends { id: string }>(calon: T[], papar: (x: T) => string) {
-  return { ralat: "Lebih daripada satu padanan. Tanya Darwish yang mana.", pilihan: calon.map((c) => ({ id: c.id, item: papar(c) })) };
+  return {
+    ralat: "Lebih daripada satu padanan. Tanya Darwish yang mana (sebut nama & masa, bukan ID), kemudian panggil semula dengan kata kunci yang lebih khusus.",
+    pilihan: calon.slice(0, 6).map(papar),
+  };
 }
 
 const TERAS: SebarangTool[] = [
@@ -136,7 +181,7 @@ const TERAS: SebarangTool[] = [
     async jalankan() {
       const akan = await senaraiAktif();
       const papan: Papan = akan.slice(0, 8).map((p) => [{ teks: `🗑 Batal: ${p.teks}`.slice(0, 40), data: `p:batal:${p.id}` }]);
-      return { untukLLM: { peringatan: akan.map((p) => ({ id: p.id, item: barisPeringatan(p) })) }, papan };
+      return { untukLLM: { peringatan: akan.map(barisPeringatan), nota: "Butang Batal sudah dilampirkan di bawah mesej." }, papan };
     },
   }),
   buatTool({
@@ -196,7 +241,7 @@ const TERAS: SebarangTool[] = [
     async jalankan() {
       const belum = await tugasanBelum();
       const papan: Papan = belum.slice(0, 8).flatMap((t) => butangTugasan(t.id).map((b) => b.map((x) => ({ ...x, teks: `✅ ${t.tajuk}`.slice(0, 40) }))));
-      return { untukLLM: { tugasan: belum.map((t) => ({ id: t.id, item: barisTugasan(t) })) }, papan };
+      return { untukLLM: { tugasan: belum.map((t) => barisTugasan(t)), nota: "Butang Tanda siap sudah dilampirkan." }, papan };
     },
   }),
   buatTool({
@@ -282,15 +327,21 @@ const KEUTAMAAN: SebarangTool[] = [
         for (const a of await bacaArahan()) if (a.tarikh === tarikh && (a.jenis === "hanya_sumber" || a.jenis === "langkau_sumber")) await padamArahan(a.id);
       }
       const a = await tambahArahan({ tarikh, jenis, sumber, arahan });
-      return { untukLLM: { status: "dicatat untuk tarikh itu sahaja", id: a.id, tarikh, jenis, sumber } };
+      return { untukLLM: { status: "dicatat untuk tarikh itu sahaja", arahan: a.arahan, tarikh, jenis, sumber } };
     },
   }),
   buatTool({
     nama: "padam_arahan",
-    penerangan: "Padam arahan bertarikh mengikut id (dari lihat_keutamaan).",
-    skema: z.object({ id: z.string() }),
-    async jalankan({ id }) {
-      return { untukLLM: { status: (await padamArahan(id)) ? "dipadam" : "id tidak dijumpai" } };
+    penerangan:
+      "Padam/batal arahan bertarikh. rujukan = kata kunci (contoh 'linkedin', 'cuti'), tarikh 'YYYY-MM-DD', atau 'semua'. Jika ada beberapa padanan berbeza, tool memulangkan pilihan untuk ditanya kepada Darwish.",
+    skema: z.object({ rujukan: z.string().min(1).max(100) }),
+    async jalankan({ rujukan }) {
+      const calon = await cariArahanAkanDatang(rujukan, tarikhMY());
+      if (!calon.length) return { untukLLM: { ralat: "Tiada arahan akan datang yang sepadan.", arahanSedia: (await bacaArahan()).filter((a) => a.tarikh >= tarikhMY()).map((a) => `${a.tarikh}: ${a.arahan}`) } };
+      const huraian = (a: (typeof calon)[number]) => `${a.tarikh}: ${a.arahan}`;
+      if (calon.length > 1 && !/^(semua|all)$/i.test(rujukan.trim()) && new Set(calon.map((a) => a.tarikh)).size > 1) return { untukLLM: senaraiPilihan(calon, huraian) };
+      for (const a of calon) await padamArahan(a.id);
+      return { untukLLM: { status: "dipadam", item: calon.map(huraian) } };
     },
   }),
 ];
@@ -434,7 +485,7 @@ const PENGETAHUAN: SebarangTool[] = [
     async jalankan({ tajuk, teks }) {
       const p = await tambahPengetahuan({ tajuk, teks, sumber: "telegram" });
       kosongkanCachePengetahuan();
-      return { untukLLM: { status: "ditambah ke portfolio", id: p.id } };
+      return { untukLLM: { status: "ditambah ke portfolio", tajuk: p.tajuk } };
     },
   }),
   buatTool({
@@ -442,17 +493,20 @@ const PENGETAHUAN: SebarangTool[] = [
     penerangan: "Senaraikan pengetahuan tambahan yang pernah ditambah (melalui Telegram atau import CV).",
     skema: z.object({}),
     async jalankan() {
-      return { untukLLM: { pengetahuan: (await bacaPengetahuan()).slice(-20).map((p) => ({ id: p.id, tajuk: p.tajuk, sumber: p.sumber })) } };
+      return { untukLLM: { pengetahuan: (await bacaPengetahuan()).slice(-20).map((p) => `${p.tajuk} (dari ${p.sumber})`) } };
     },
   }),
   buatTool({
     nama: "padam_pengetahuan",
-    penerangan: "Padam satu pengetahuan tambahan mengikut id.",
-    skema: z.object({ id: z.string() }),
-    async jalankan({ id }) {
-      const ok = await padamPengetahuan(id);
+    penerangan: "Padam pengetahuan tambahan. rujukan = kata kunci tajuk (contoh 'oracle').",
+    skema: z.object({ rujukan: z.string().min(1).max(100) }),
+    async jalankan({ rujukan }) {
+      const calon = cariPadanan(await bacaPengetahuan(), rujukan, (p) => `${p.tajuk} ${p.teks}`);
+      if (!calon.length) return { untukLLM: { ralat: "Tiada pengetahuan yang sepadan." } };
+      if (calon.length > 1) return { untukLLM: senaraiPilihan(calon, (p) => p.tajuk) };
+      await padamPengetahuan(calon[0].id);
       kosongkanCachePengetahuan();
-      return { untukLLM: { status: ok ? "dipadam" : "id tidak dijumpai" } };
+      return { untukLLM: { status: "dipadam", tajuk: calon[0].tajuk } };
     },
   }),
   buatTool({
@@ -519,13 +573,9 @@ const KUMPULAN: { nama: string; tools: SebarangTool[]; kataKunci: RegExp }[] = [
   { nama: "ringkasan", tools: RINGKASAN, kataKunci: /lead|ringkasan|briefing|laporan|summary|status|apa (yang )?(perlu|patut)|hari ini/i },
 ];
 
-export function pilihTools(teks: string): { tools: SebarangTool[]; kumpulan: string[] } {
-  const dipilih = KUMPULAN.filter((k) => k.kataKunci.test(teks));
-  // Tiada padanan khusus → beri kumpulan ringan yang biasa digunakan
-  const akhir = dipilih.length ? dipilih : KUMPULAN.filter((k) => k.nama === "keutamaan" || k.nama === "ringkasan");
-  return { tools: [...TERAS, ...akhir.flatMap((k) => k.tools)], kumpulan: ["teras", ...akhir.map((k) => k.nama)] };
-}
-
+/** Semua kumpulan tools (dahulu ada penghala kata kunci; kini SEMUA tools sentiasa dihantar supaya
+ *  agent tidak "tak faham" bila Darwish guna perkataan yang tidak dijangka. Definisi tools kekal
+ *  sama setiap permintaan, jadi ia dicache oleh Groq). */
 export const SEMUA_TOOLS_PERIBADI: SebarangTool[] = [...TERAS, ...KUMPULAN.flatMap((k) => k.tools)];
 
 /** Jalankan agent peribadi untuk satu mesej Darwish. */
@@ -534,12 +584,17 @@ export async function jalankanAgenPeribadi(
   llm?: KlienLLM,
   kini: Date = new Date(),
 ): Promise<{ teks: string; papan: Papan; tools: string[] }> {
-  // Penghala melihat mesej terakhir Darwish DAN balasan agent sebelumnya (untuk jawapan susulan seperti "dua-dua")
-  const terakhir = sejarah.slice(-3).map((m) => m.content).join("\n");
-  const { tools } = pilihTools(terakhir);
-  // 12 mesej terakhir cukup untuk konteks; lebih panjang membazir had token Groq percuma (8K/minit)
-  const hasil = await jalankanGelung({ systemPrompt: promptPeribadi(kini), tools, sejarah: sejarah.slice(-12), llm });
+  const hasil = await jalankanGelung({
+    systemPrompt: PROMPT_PERIBADI,
+    konteks: await binaKonteks(kini),
+    tools: SEMUA_TOOLS_PERIBADI,
+    // 12 mesej terakhir cukup untuk konteks; lebih panjang membazir had token Groq percuma
+    sejarah: sejarah.slice(-12),
+    llm,
+    usahaFikir: "medium", // fikir lebih sedikit: faham maksud, putuskan bila perlu bertanya
+    maksPusingan: 6,
+  });
   const namaTools = hasil.langkah.map((l) => l.tool);
-  if (hasil.hadDicapai) return { teks: "Maaf, arahan itu terlalu rumit untuk saya siapkan. Boleh pecahkan kepada langkah lebih kecil?", papan: hasil.papan, tools: namaTools };
+  if (hasil.hadDicapai) return { teks: "Maaf, saya tersangkut dengan arahan tu. Boleh terangkan sekali lagi dengan cara lain?", papan: hasil.papan, tools: namaTools };
   return { teks: hasil.teks.trim() || "Maaf, saya tak dapat menyiapkan jawapan. Cuba sekali lagi?", papan: hasil.papan, tools: namaTools };
 }

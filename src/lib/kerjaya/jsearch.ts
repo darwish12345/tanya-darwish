@@ -72,7 +72,7 @@ export function normalkan(j: JobMentah): IklanKerja {
 
 export async function cariJSearch(
   pertanyaan: string,
-  opsyen: { negara?: string; tempoh?: "today" | "3days" | "week" | "month"; kecuali?: string[] } = {},
+  opsyen: { negara?: string; tempoh?: "today" | "3days" | "week" | "month"; kecuali?: string[]; keperluan?: string } = {},
 ): Promise<IklanKerja[]> {
   const kunci = process.env.JSEARCH_API_KEY?.trim();
   if (!kunci) throw new Error("JSEARCH_API_KEY belum ditetapkan");
@@ -86,6 +86,8 @@ export async function cariJSearch(
     date_posted: opsyen.tempoh ?? "3days",
   });
   if (opsyen.kecuali?.length) p.set("exclude_job_publishers", opsyen.kecuali.join(","));
+  // Contoh "under_3_years_experience,no_experience" untuk fresh grad
+  if (opsyen.keperluan) p.set("job_requirements", opsyen.keperluan);
 
   const [url, headers] =
     pembekal === "openwebninja"
@@ -125,4 +127,17 @@ export function tapisIkutSumber(iklan: IklanKerja[], sumber: string[]): IklanKer
     if (pilihan) hasil.push({ ...k, penerbit: pilihan.penerbit, pautan: pilihan.pautan });
   }
   return hasil;
+}
+
+/**
+ * Buang iklan yang jelas bukan untuk fresh grad: internship, senior/lead/manager, atau menuntut 3+ tahun.
+ * (Graduate trainee / management trainee DIKEKALKAN kerana memang untuk graduan baru.)
+ */
+const TAJUK_BUKAN_FRESH = /\b(intern|internship|industrial training|praktikal|latihan industri|senior|sr\.?|lead|principal|manager|head of|architect|staff engineer|director)\b/i;
+const TUNTUT_PENGALAMAN = /(?<!\d\s*[-–]\s*|\bto\s)\b([3-9]|1\d)\s*\+?\s*(?:-\s*\d+\s*)?(?:years?|yrs?|tahun)\b[^.]{0,40}\b(experience|pengalaman)/i;
+
+export function sesuaiFreshGrad(k: IklanKerja): boolean {
+  if (TAJUK_BUKAN_FRESH.test(k.tajuk)) return false;
+  if (TUNTUT_PENGALAMAN.test(k.penerangan.slice(0, 4000))) return false;
+  return true;
 }

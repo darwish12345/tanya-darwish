@@ -17,7 +17,7 @@ async function main() {
 
   const masa = await import("../src/lib/masa");
   const { dariMasaMY, tarikhMY, tambahHari, jamMY, selepasMinit, gabungMY, hariMingguMY } = masa;
-  const { jalankanAgenPeribadi, pilihTools } = await import("../src/lib/agent/peribadi");
+  const { jalankanAgenPeribadi, SEMUA_TOOLS_PERIBADI } = await import("../src/lib/agent/peribadi");
   const data = await import("../src/lib/data");
   const { binaLaporan } = await import("../src/lib/laporan");
   const { binaBriefing } = await import("../src/lib/briefing");
@@ -125,9 +125,10 @@ async function main() {
       kini,
     );
     assert.match(hasil.teks, /Indeed/);
-    assert.match(String(diterima[0].messages[0].content), new RegExp(esok), "prompt mengandungi tarikh esok sebenar");
-    const namaTools = diterima[0].tools!.map((t) => t.function.name);
-    assert.ok(namaTools.includes("catat_arahan") && namaTools.includes("tetapkan_peringatan"), "penghala memberi tools yang betul");
+    assert.match(String(diterima[0].messages[1].content), new RegExp(esok), "konteks mengandungi tarikh esok sebenar");
+    assert.equal(diterima[0].tools!.length, SEMUA_TOOLS_PERIBADI.length, "semua tools sentiasa dihantar");
+    // System prompt tetap (boleh dicache) diletak dahulu; konteks berubah selepasnya
+    assert.ok(!/\d{4}-\d{2}-\d{2}/.test(String(diterima[0].messages[0].content)), "prompt tetap tiada tarikh");
   }
   const p7 = (await data.bacaPeringatan()).find((x) => x.teks === "Siap sedia interview")!;
   assert.equal(p7.masa, dariMasaMY(`${esok} 07:00`)!.toISOString());
@@ -140,10 +141,34 @@ async function main() {
   assert.equal((await data.sumberBerkuatKuasa(lusa)).langkau, true);
   ok("arahan langkau carian untuk satu hari");
 
-  assert.deepEqual(pilihTools("hai").kumpulan, ["teras", "keutamaan", "ringkasan"]);
-  assert.ok(pilihTools("cari kerja sekarang").kumpulan.includes("kerja"));
-  assert.ok(pilihTools("masukkan interview dalam kalendar").kumpulan.includes("jadual"));
-  ok("penghala tools ikut kata kunci");
+  // REGRESI: "batal arahan linkedin tu" dahulu menyebabkan agent minta ID arahan
+  {
+    const { llm, diterima } = llmPalsu([panggilTool("d", "padam_arahan", { rujukan: "linkedin" }), jawab("Siap, arahan LinkedIn esok dibuang.")]);
+    await jalankanAgenPeribadi([{ role: "user", content: "batalkan arahan tak perlu linkedin tu" }], llm);
+    assert.deepEqual((await data.sumberBerkuatKuasa(esok)).sumber, ["LinkedIn", "Indeed", "Glassdoor"], "arahan LinkedIn dipadam");
+    const konteks = String(diterima[0].messages[1].content);
+    assert.match(konteks, /esok: Jangan cari kerja di LinkedIn/, "agent nampak arahan sedia ada dalam konteks");
+    const hasilTool = diterima[1].messages.find((m) => m.role === "tool");
+    assert.ok(!/"id"/.test(String(hasilTool?.content)), "tiada ID dalam hasil tool");
+    assert.match(String(diterima[0].messages[0].content), /JANGAN sekali-kali minta Darwish beri ID/, "prompt melarang minta ID");
+  }
+  ok("REGRESI: padam arahan dengan kata kunci ('linkedin'), tanpa ID");
+
+  {
+    const { cariPadanan } = await import("../src/lib/teks");
+    const item = [
+      { id: "a1", t: "Minum air" },
+      { id: "a2", t: "Kelas boxing" },
+      { id: "a3", t: "Minum ubat" },
+    ];
+    const cari = (r: string) => cariPadanan(item, r, (x) => x.t).map((x) => x.id);
+    assert.deepEqual(cari("peringatan minum air tu"), ["a1"]);
+    assert.deepEqual(cari("boxing"), ["a2"]);
+    assert.deepEqual(cari("minum"), ["a1", "a3"], "kabur → beberapa pilihan");
+    assert.deepEqual(cari("a3"), ["a3"]);
+    assert.deepEqual(cari("berenang"), []);
+  }
+  ok("padanan rujukan bahasa biasa ('peringatan minum air tu' → Minum air)");
 
   console.log("Tugasan & penjadual");
   {
@@ -242,6 +267,34 @@ async function main() {
 
   assert.equal(keHtmlTelegram("**Hai** <b> & co"), "<b>Hai</b> &lt;b&gt; &amp; co");
   ok("teks Telegram di-escape dengan selamat");
+
+  console.log("Keselamatan");
+  {
+    const { semakHadKadar, bersihkanTeksPelawat, namaSah } = await import("../src/lib/guardrails");
+    let disekat = 0;
+    for (let i = 0; i < 25; i++) if (!(await semakHadKadar("1.2.3.4")).ok) disekat++;
+    assert.equal(disekat, 5, "IP yang sama disekat selepas 20 mesej sejam");
+    assert.ok((await semakHadKadar("5.6.7.8")).ok, "IP lain tidak terjejas");
+    process.env.HAD_WEB_SEHARI = "26"; // 26 mesej sudah dikira di atas
+    const r = await semakHadKadar("9.9.9.9");
+    assert.ok(!r.ok && /had harian/.test(r.mesej), "had harian keseluruhan melindungi kuota Groq");
+    delete process.env.HAD_WEB_SEHARI;
+
+    assert.ok(namaSah("Nur Aisyah binti Ahmad") && namaSah("Sarah O'Connor") && namaSah("李明"));
+    assert.ok(!namaSah("Free money http://x.co") && !namaSah("visit www.spam.com") && !namaSah("<script>"));
+    assert.equal(bersihkanTeksPelawat("Hai <b>klik</b> https://phish.ly/x sekarang!!"), "Hai b klik /b sekarang!!");
+
+    // Notifikasi lead dihadkan 20 sehari; selepas itu lead tetap DISIMPAN tetapi tidak ping Telegram
+    const sebelum = tg.panggilan.length;
+    let disimpanSahaja = 0;
+    for (let i = 0; i < 22; i++) {
+      const h = await jalankanTool("maklum_darwish", JSON.stringify({ nama: `Spam ${i}`, jenis: "lain", mesej: "x", ringkasan: "x" }));
+      if ((h.untukLLM as { status: string }).status === "disimpan") disimpanSahaja++;
+    }
+    assert.ok(disimpanSahaja >= 2, "selepas had, lead hanya disimpan");
+    assert.ok(tg.panggilan.slice(sebelum).filter((x) => x.kaedah === "sendMessage").length <= 20);
+  }
+  ok("had kadar (IP & harian), nama/teks pelawat dibersihkan, had notifikasi lead");
 
   tg.tutup();
   console.log(`\n${jumlahLulus()} ujian agent peribadi lulus.`);
