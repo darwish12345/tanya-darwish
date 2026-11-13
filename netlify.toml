@@ -1,0 +1,7 @@
+# Tetapan untuk deploy di Netlify (Next.js dikesan secara automatik)
+[build]
+  command = "npm run build"
+
+# Pastikan fail pengetahuan agent (content/) dibawa bersama ke server
+[functions]
+  included_files = ["content/**"]
