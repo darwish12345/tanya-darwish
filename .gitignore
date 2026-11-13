@@ -42,3 +42,6 @@ next-env.d.ts
 
 # benarkan contoh env
 !.env.example
+
+# data tempatan agent (laptop sahaja)
+/.data

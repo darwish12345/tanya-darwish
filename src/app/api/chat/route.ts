@@ -6,6 +6,7 @@ import { z } from "zod";
 import Groq from "groq-sdk";
 import { jalankanAgent } from "@/lib/agent/loop";
 import { HAD_PANJANG_MESEJ, HAD_SEJARAH, semakHadKadar } from "@/lib/guardrails";
+import { logSoalan } from "@/lib/data";
 
 const SkemaBadan = z.object({
   messages: z
@@ -43,7 +44,15 @@ export async function POST(req: Request) {
   }
 
   try {
-    return Response.json(await jalankanAgentDenganCubaSemula(sejarah));
+    const hasil = await jalankanAgentDenganCubaSemula(sejarah);
+    // Rekod soalan untuk laporan harian (kegagalan log tidak menjejaskan pelawat)
+    await logSoalan({
+      masa: new Date().toISOString(),
+      soalan: terakhir.content.slice(0, 300),
+      tools: hasil.langkah.map((l) => l.tool),
+      tiadaJawapan: hasil.tiadaJawapan,
+    }).catch((e) => console.error("[api/chat] Gagal log soalan:", e));
+    return Response.json(hasil);
   } catch (e) {
     console.error("[api/chat]", e);
     if (e instanceof Groq.APIError && e.status === 429) {

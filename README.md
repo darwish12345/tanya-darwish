@@ -103,6 +103,33 @@ Tanpa Telegram, mesej pelawat hanya dicetak di terminal.
 3. Dalam *Environment Variables*, tambah `GROQ_API_KEY` (dan Telegram jika ada).
 4. Tekan *Deploy*.
 
+## Agent peribadi Telegram (Fasa 1)
+
+Bot Telegram yang hanya mendengar arahan Darwish:
+
+- **Peringatan** ikut waktu Malaysia: *"Esok pukul 7 pagi ingatkan saya siap sedia interview"*
+- **Keutamaan carian kerja**: *"Tambah lokasi Kuala Lumpur"*, *"Esok tak perlu cari di LinkedIn"*
+- **Lead pintar**: setiap mesej pelawat laman disimpan + notifikasi Telegram tersusun
+- **Laporan harian** jam 9 malam: soalan pelawat, soalan yang agent gagal jawab, leads, jadual esok
+
+| Fail | Fungsi |
+| --- | --- |
+| `src/lib/agent/peribadi.ts` | Prompt + tools agent peribadi |
+| `src/app/api/telegram/route.ts` | Webhook: Telegram hantar mesej bot ke sini |
+| `src/app/api/telegram/setup/route.ts` | Sambung bot ke webhook (sekali sahaja) |
+| `src/app/api/cron/route.ts` | Dipanggil setiap 5 minit: peringatan & laporan |
+| `src/lib/store.ts` | Memori kekal: Netlify Blobs (fail `.data/` di laptop) |
+| `src/lib/masa.ts` | Penukaran waktu Malaysia |
+
+### Setup
+
+1. Netlify → *Environment variables*: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `AGENT_SECRET` (huruf + nombor, minimum 16 aksara). Deploy semula.
+2. Buka sekali: `https://tanya-darwish.netlify.app/api/telegram/setup?kunci=AGENT_SECRET`
+3. Di [cron-job.org](https://cron-job.org) (percuma), cipta cron job setiap 5 minit ke `https://tanya-darwish.netlify.app/api/cron?kunci=AGENT_SECRET`
+4. Hantar `/start` kepada bot anda.
+
+Ujian tanpa internet: `npm run test:peribadi`
+
 ## Tukar model
 
 Lalai: `openai/gpt-oss-120b`. Tetapkan `GROQ_MODEL` dalam `.env.local` untuk mencuba model lain yang menyokong tool calling, contohnya `llama-3.3-70b-versatile`. Senarai model dan had percuma terkini ada di console Groq.
@@ -114,5 +141,9 @@ Lalai: `openai/gpt-oss-120b`. Tetapkan `GROQ_MODEL` dalam `.env.local` untuk men
 - [ ] Carian vektor: embedding + Supabase pgvector (ganti `cariPengetahuan`, gelung tidak berubah)
 - [ ] Tools `hantar_cv` dan `tempah_meeting`
 - [ ] Panel admin untuk upload bahan
-- [ ] Had kadar dengan Upstash Redis
+- [x] Agent peribadi Telegram, peringatan, lead pintar, laporan harian
+- [ ] Carian kerja harian (JSearch) + penilai padanan jawatan
+- [ ] Resume ATS + cover letter, draf diluluskan melalui Telegram, hantar melalui Gmail
+- [ ] Tempah interview (Google Calendar) melalui web & Telegram
+- [ ] Had kadar kekal
 - [ ] Set eval 40 soalan

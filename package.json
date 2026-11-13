@@ -8,9 +8,11 @@
     "start": "next start",
     "lint": "eslint",
     "chat": "tsx scripts/chat.ts",
-    "test:agent": "tsx scripts/test-agent.ts"
+    "test:agent": "tsx scripts/test-agent.ts",
+    "test:peribadi": "tsx scripts/test-peribadi.ts"
   },
   "dependencies": {
+    "@netlify/blobs": "^11.1.9",
     "geist": "^1.9.2",
     "groq-sdk": "^1.6.0",
     "minisearch": "^7.2.0",

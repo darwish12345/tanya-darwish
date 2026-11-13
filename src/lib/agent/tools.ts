@@ -8,25 +8,13 @@
  * Untuk menambah tool baru: tambah satu objek dalam senarai TOOLS di bawah.
  */
 import { z } from "zod";
-import type { ChatCompletionTool } from "groq-sdk/resources/chat/completions";
 import { cariPengetahuan } from "@/lib/rag/knowledge";
-import { senaraiProjek, keKad, type KadProjek } from "@/lib/projects";
+import { senaraiProjek, keKad } from "@/lib/projects";
+import { buatTool, keDefinisi, jalankanToolDari, type SebarangTool, type HasilTool } from "./rangka";
+import { simpanLead } from "@/lib/data";
+import { hantarTelegram, telegramDisetup } from "@/lib/telegram";
 
-export type HasilTool = {
-  untukLLM: unknown; // apa yang LLM akan baca
-  kad?: KadProjek[]; // apa yang UI akan paparkan (pilihan)
-};
-
-type Tool<S extends z.ZodTypeAny> = {
-  nama: string;
-  penerangan: string;
-  skema: S;
-  jalankan: (input: z.infer<S>) => Promise<HasilTool>;
-};
-
-function buatTool<S extends z.ZodTypeAny>(t: Tool<S>) {
-  return t;
-}
+export type { HasilTool };
 
 // ---------------------------------------------------------------------------
 // 1. cari_pengetahuan: RAG
@@ -41,7 +29,7 @@ const cariPengetahuanTool = buatTool({
   async jalankan({ soalan }) {
     const ketul = cariPengetahuan(soalan);
     if (ketul.length === 0) {
-      return { untukLLM: { hasil: [], nota: "Tiada maklumat dijumpai. Jangan meneka." } };
+      return { untukLLM: { hasil: [], nota: "Tiada maklumat dijumpai. Jangan meneka." }, tiadaHasil: true };
     }
     return {
       untukLLM: { hasil: ketul.map((k) => ({ sumber: k.sumber, tajuk: k.tajuk, teks: k.teks })) },
@@ -82,90 +70,66 @@ const paparProjekTool = buatTool({
 const maklumDarwishTool = buatTool({
   nama: "maklum_darwish",
   penerangan:
-    "Hantar mesej pelawat kepada Darwish melalui Telegram. Guna HANYA selepas pelawat memberi nama dan mesej mereka.",
+    "Hantar mesej pelawat kepada Darwish (notifikasi Telegram + disimpan sebagai lead). Guna HANYA selepas pelawat memberi nama dan mesej mereka.",
   skema: z.object({
     nama: z.string().min(1).max(80),
     syarikat: z.string().max(80).optional(),
+    jawatan: z.string().max(100).optional().describe("Jawatan yang ditawarkan atau dibincangkan, jika ada"),
     hubungan: z.string().max(120).optional().describe("Emel atau LinkedIn pelawat, jika diberi"),
+    jenis: z.enum(["recruiter", "kawan", "lain"]).describe("Siapa pelawat ini, berdasarkan perbualan"),
     mesej: z.string().min(1).max(500),
+    ringkasan: z
+      .string()
+      .max(300)
+      .describe("Ringkasan satu ayat: apa yang pelawat tanya atau minati sebelum ini dalam perbualan"),
   }),
-  async jalankan({ nama, syarikat, hubungan, mesej }) {
+  async jalankan(lead) {
+    // 1. Simpan dahulu, supaya lead tidak hilang walaupun Telegram gagal
+    let disimpan = false;
+    try {
+      await simpanLead({ ...lead, masa: new Date().toISOString() });
+      disimpan = true;
+    } catch (e) {
+      console.error("[maklum_darwish] Gagal simpan lead:", e);
+    }
+
+    // 2. Notifikasi Telegram yang tersusun
+    const label = lead.jenis === "recruiter" ? "Recruiter" : lead.jenis === "kawan" ? "Kawan" : "Pelawat";
     const teks = [
-      "Mesej baru dari Tanya Darwish",
-      `Nama: ${nama}`,
-      syarikat ? `Syarikat: ${syarikat}` : "",
-      hubungan ? `Hubungan: ${hubungan}` : "",
-      `Mesej: ${mesej}`,
+      `**Lead baru: ${label}**`,
+      `Nama: ${lead.nama}`,
+      lead.syarikat ? `Syarikat: ${lead.syarikat}` : "",
+      lead.jawatan ? `Jawatan: ${lead.jawatan}` : "",
+      lead.hubungan ? `Hubungan: ${lead.hubungan}` : "",
+      `Mesej: ${lead.mesej}`,
+      lead.ringkasan ? `Konteks: ${lead.ringkasan}` : "",
     ]
       .filter(Boolean)
       .join("\n");
+    const dihantar = telegramDisetup() ? await hantarTelegram(teks) : false;
 
-    const token = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
-    // Jujur dengan pelawat: jangan kata "dihantar" jika mesej sebenarnya tidak sampai
-    const gagal = {
+    // 3. Jujur dengan pelawat tentang status sebenar
+    if (dihantar) return { untukLLM: { status: "dihantar" } };
+    if (disimpan) {
+      return {
+        untukLLM: {
+          status: "disimpan",
+          nota: "Mesej disimpan dengan selamat dan Darwish akan melihatnya dalam laporan hariannya. Beritahu pelawat begitu (bukan 'dihantar serta-merta').",
+        },
+      };
+    }
+    return {
       untukLLM: {
         status: "gagal",
         nota: "Mesej TIDAK sampai kepada Darwish. Beritahu pelawat dengan jujur dan cadangkan mereka cuba lagi nanti atau hubungi Darwish melalui LinkedIn.",
       },
     };
-
-    if (!token || !chatId) {
-      console.error("[maklum_darwish] TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID belum ditetapkan. Mesej:\n" + teks);
-      return gagal;
-    }
-
-    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text: teks }),
-    });
-    if (!res.ok) {
-      console.error("[maklum_darwish] Telegram menolak:", res.status, await res.text());
-      return gagal;
-    }
-    return { untukLLM: { status: "dihantar" } };
   },
 });
 
 // ---------------------------------------------------------------------------
-// Senarai semua tools
+// Senarai semua tools agent web
 // ---------------------------------------------------------------------------
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const TOOLS: Tool<any>[] = [cariPengetahuanTool, paparProjekTool, maklumDarwishTool];
-
-/** Tukar tools kita kepada format yang difahami oleh API (JSON Schema). */
-export const DEFINISI_TOOLS: ChatCompletionTool[] = TOOLS.map((t) => {
-  // Buang medan "$schema" yang tidak diperlukan oleh API
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { $schema, ...parameters } = z.toJSONSchema(t.skema) as Record<string, unknown>;
-  return {
-    type: "function",
-    function: { name: t.nama, description: t.penerangan, parameters },
-  };
-});
-
-/** Jalankan satu tool mengikut nama, dengan validasi input. */
-export async function jalankanTool(nama: string, argumenJson: string): Promise<HasilTool> {
-  const tool = TOOLS.find((t) => t.nama === nama);
-  if (!tool) return { untukLLM: { ralat: `Tool '${nama}' tidak wujud.` } };
-
-  let argumen: unknown;
-  try {
-    argumen = argumenJson ? JSON.parse(argumenJson) : {};
-  } catch {
-    return { untukLLM: { ralat: "Argumen bukan JSON yang sah." } };
-  }
-
-  const semak = tool.skema.safeParse(argumen);
-  if (!semak.success) {
-    return { untukLLM: { ralat: "Input tidak sah", butiran: semak.error.issues.map((i: z.core.$ZodIssue) => i.message) } };
-  }
-
-  try {
-    return await tool.jalankan(semak.data);
-  } catch (e) {
-    console.error(`[tool ${nama}]`, e);
-    return { untukLLM: { ralat: "Tool gagal dijalankan." } };
-  }
-}
+export const TOOLS: SebarangTool[] = [cariPengetahuanTool, paparProjekTool, maklumDarwishTool];
+export const DEFINISI_TOOLS = keDefinisi(TOOLS);
+export const jalankanTool = (nama: string, argumen: string) => jalankanToolDari(TOOLS, nama, argumen);
