@@ -168,7 +168,8 @@ export async function jalankanAgent(sejarah: MesejSejarah[], llm?: KlienLLM): Pr
     };
   }
 
-  const { jawapan, cadangan } = asingkanCadangan(hasil.teks);
+  // Model kadang-kadang tergagap menulis nama ("Dar Darwish"): betulkan
+  const { jawapan, cadangan } = asingkanCadangan(hasil.teks.replace(/\bDar\s+Darwish\b/g, "Darwish"));
   // Pelindung: jangan sekali-kali hantar gelembung kosong kepada pelawat
   const akhir = jawapan || "Maaf, saya tak dapat menyiapkan jawapan tadi. Boleh cuba tanya sekali lagi?";
   return {
