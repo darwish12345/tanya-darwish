@@ -1,8 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   cacheComponents: true,
+  // Pastikan folder pengetahuan ikut sekali semasa deploy ke Vercel
+  outputFileTracingIncludes: {
+    "/api/chat": ["./content/**/*"],
+  },
   partialPrefetching: true,
   turbopack: {
     rules: {

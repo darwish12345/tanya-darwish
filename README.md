@@ -1,36 +1,118 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Tanya Darwish: Portfolio Agent
 
-## Getting Started
+Agent AI di laman portfolio yang menjawab soalan recruiter dan kawan tentang kerjaya Darwish, memaparkan kad projek dan menghantar mesej kepada Darwish melalui Telegram.
 
-First, run the development server:
+Dibina dengan **Next.js + TypeScript**, LLM percuma dari **Groq**, dan gelung agent yang ditulis sendiri (tanpa framework) supaya setiap langkah boleh difahami.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Cara ia berfungsi
+
+```
+Pelawat ──soalan──▶ /api/chat ──▶ GELUNG AGENT ◀──▶ Groq (LLM)
+                                     │
+                                     ▼ LLM minta tool, kod kita jalankan
+                       ┌─────────────┼──────────────┐
+               cari_pengetahuan  papar_projek  maklum_darwish
+                 (folder content/)  (kad projek)   (Telegram)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+1. Pelawat tekan butang soalan atau menaip.
+2. `/api/chat` semak guardrails (had kadar, panjang mesej).
+3. Gelung agent hantar system prompt + senarai tools + mesej kepada LLM.
+4. LLM minta tool (contoh `cari_pengetahuan`). Kod kita jalankan dan hantar hasil semula.
+5. Ulang sehingga LLM beri jawapan akhir (maksimum 5 pusingan).
+6. Jawapan, kad projek dan soalan susulan dipaparkan.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Struktur projek
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Fail | Konsep agentic AI | Apa isinya |
+| --- | --- | --- |
+| `src/lib/agent/loop.ts` | Gelung agent | Jantung sistem. Baca fail ini dahulu. |
+| `src/lib/agent/prompt.ts` | System prompt | Identiti dan peraturan agent |
+| `src/lib/agent/tools.ts` | Tool calling | Definisi dan kod setiap tool |
+| `src/lib/rag/knowledge.ts` | RAG | Pecah fail jadi ketul, cari ketul relevan |
+| `src/lib/guardrails.ts` | Guardrails | Had kadar dan had panjang mesej |
+| `src/app/api/chat/route.ts` | Backend | Endpoint yang dipanggil oleh UI |
+| `src/components/Chat.tsx` | UI | Widget chat, butang soalan, kad projek |
+| `src/config/suggestions.ts` | UX | Butang soalan pembuka |
+| `content/` | Pangkalan pengetahuan | **Maklumat tentang anda: isi di sini** |
+| `scripts/chat.ts` | Debug | Chat dari terminal, nampak setiap tool dipanggil |
+| `scripts/test-agent.ts` | Eval asas | Ujian gelung agent dengan LLM palsu |
 
-## Learn More
+## Cara jalankan (kali pertama)
 
-To learn more about Next.js, take a look at the following resources:
+Keperluan: [Node.js](https://nodejs.org) versi 20 atau lebih baru.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. **Dapatkan kunci Groq percuma:** daftar di [console.groq.com](https://console.groq.com), buka *API Keys*, tekan *Create API Key*, dan salin kunci.
+2. **Pasang pakej:**
+   ```bash
+   npm install
+   ```
+3. **Tetapkan kunci:** salin `.env.example` kepada `.env.local`, kemudian isi `GROQ_API_KEY`.
+   ```bash
+   cp .env.example .env.local
+   ```
+4. **Uji gelung agent (tanpa internet):**
+   ```bash
+   npm run test:agent
+   ```
+5. **Chat dari terminal** untuk nampak agent bekerja:
+   ```bash
+   npm run chat
+   ```
+6. **Jalankan laman web:**
+   ```bash
+   npm run dev
+   ```
+   Buka http://localhost:3000
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Isi maklumat anda
 
-## Deploy on Vercel
+Semua pengetahuan agent ada dalam folder `content/`:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `profil.md`: ringkasan, pendidikan, pengalaman, kemahiran, matlamat
+- `sijil.md`: sijil dengan link pengesahan
+- `faq.md`: jawapan yang anda mahu agent beri
+- `projek.json`: senarai projek untuk kad projek dan carian
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Peraturan:
+
+- Satu tajuk `##` = satu topik. Agent mencari ikut bahagian ini.
+- Baris yang bermula dengan `TODO` **tidak dibaca** oleh agent. Gantikan dengan maklumat sebenar.
+- Projek dengan `"draf": true` tidak dipaparkan.
+- Jangan masukkan maklumat sulit syarikat tanpa kebenaran supervisor, atau maklumat peribadi (alamat, IC, nombor telefon).
+
+Selepas mengubah `content/`, mulakan semula `npm run dev`.
+
+## Tambah tool baru
+
+Dalam `src/lib/agent/tools.ts`, cipta tool dengan `buatTool({ nama, penerangan, skema, jalankan })` dan tambah ke senarai `TOOLS`. LLM memilih tool berdasarkan `penerangan`, jadi tulis dengan jelas bila tool itu patut digunakan.
+
+## Notifikasi Telegram (pilihan)
+
+1. Di Telegram, cari **@BotFather**, hantar `/newbot` dan salin token.
+2. Hantar satu mesej kepada bot baru anda.
+3. Buka `https://api.telegram.org/bot<TOKEN>/getUpdates` dan salin nombor `chat.id`.
+4. Isi `TELEGRAM_BOT_TOKEN` dan `TELEGRAM_CHAT_ID` dalam `.env.local`.
+
+Tanpa Telegram, mesej pelawat hanya dicetak di terminal.
+
+## Deploy ke Vercel (percuma)
+
+1. Push projek ke GitHub (fail `.env.local` tidak akan ikut, dan itu betul).
+2. Di [vercel.com](https://vercel.com), *Add New Project* dan pilih repo ini.
+3. Dalam *Environment Variables*, tambah `GROQ_API_KEY` (dan Telegram jika ada).
+4. Tekan *Deploy*.
+
+## Tukar model
+
+Lalai: `openai/gpt-oss-120b`. Tetapkan `GROQ_MODEL` dalam `.env.local` untuk mencuba model lain yang menyokong tool calling, contohnya `llama-3.3-70b-versatile`. Senarai model dan had percuma terkini ada di console Groq.
+
+## Fasa seterusnya
+
+- [ ] Isi semua `TODO` dalam `content/`
+- [ ] Streaming jawapan (perkataan demi perkataan)
+- [ ] Carian vektor: embedding + Supabase pgvector (ganti `cariPengetahuan`, gelung tidak berubah)
+- [ ] Tools `hantar_cv` dan `tempah_meeting`
+- [ ] Panel admin untuk upload bahan
+- [ ] Had kadar dengan Upstash Redis
+- [ ] Set eval 40 soalan

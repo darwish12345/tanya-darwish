@@ -1,0 +1,25 @@
+[
+  {
+    "id": "tanya-darwish",
+    "nama": "Tanya Darwish (Portfolio Agent)",
+    "ringkasan": "Agent AI di laman portfolio yang menjawab soalan tentang kerjaya Darwish, menunjukkan bukti kerja dan menghantar mesej kepada Darwish.",
+    "peranan": "Pembangun tunggal: reka bentuk, kod dan deploy",
+    "tempoh": "Nov 2026 - sekarang",
+    "tech": ["Next.js", "TypeScript", "Groq (LLM)", "Tool calling", "RAG", "Tailwind CSS"],
+    "tag": ["ai", "agent", "web"],
+    "link": { "repo": "", "demo": "" },
+    "butiran": "Agent ini menggunakan gelung agent yang ditulis sendiri: LLM memilih tool (cari_pengetahuan, papar_projek, maklum_darwish), kod menjalankannya, dan hasilnya dihantar semula kepada LLM sehingga jawapan siap. Pengetahuan disimpan dalam fail Markdown, dipecah ikut tajuk dan dicari menggunakan carian teks. Butang soalan cadangan membolehkan pelawat bertanya tanpa menaip."
+  },
+  {
+    "id": "contoh-projek",
+    "draf": true,
+    "nama": "TODO: Nama projek seterusnya",
+    "ringkasan": "TODO: Satu ayat tentang projek ini.",
+    "peranan": "TODO",
+    "tempoh": "TODO",
+    "tech": [],
+    "tag": [],
+    "link": { "repo": "", "demo": "" },
+    "butiran": "TODO: Masalah, penyelesaian, sumbangan anda, cabaran, hasil. Projek dengan \"draf\": true tidak dipaparkan kepada agent."
+  }
+]
