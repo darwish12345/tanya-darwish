@@ -32,3 +32,5 @@ body {
 .prose-chat a { color: #4f46e5; text-decoration: underline; }
 .prose-chat strong { font-weight: 600; }
 .prose-chat code { font-size: 0.85em; background: rgba(127,127,127,0.15); padding: 0.1rem 0.3rem; border-radius: 4px; }
+.prose-chat table { border-collapse: collapse; margin: 0.5rem 0; font-size: 0.8rem; }
+.prose-chat th, .prose-chat td { border: 1px solid rgba(127,127,127,0.3); padding: 0.25rem 0.5rem; text-align: left; }

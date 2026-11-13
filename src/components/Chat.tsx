@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { SOALAN_PEMBUKA } from "@/config/suggestions";
 import type { HasilAgent, Langkah } from "@/lib/agent/loop";
 import type { KadProjek } from "@/lib/projects";
@@ -114,6 +115,7 @@ export default function Chat() {
               )}
               <div className="prose-chat max-w-[90%] rounded-2xl rounded-bl-sm bg-zinc-100 px-4 py-2.5 text-sm leading-relaxed dark:bg-zinc-900">
                 <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
                   components={{
                     a: (props) => <a {...props} target="_blank" rel="noopener noreferrer" />,
                   }}
