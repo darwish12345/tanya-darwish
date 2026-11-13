@@ -36,14 +36,24 @@ function storanFail(): Storan {
   };
 }
 
+/** Gagal dengan cepat daripada tergantung (permintaan yang tergantung = pelawat menunggu 30 saat). */
+function denganHadMasa<T>(janji: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    janji,
+    new Promise<T>((_, tolak) => setTimeout(() => tolak(new Error(`[store] ${label}: melebihi ${ms}ms`)), ms)),
+  ]);
+}
+
+const HAD_MASA_MS = 4000;
+
 function storanNetlify(): Storan {
-  const store = getStore({ name: NAMA_STORE, consistency: "strong" });
+  const store = getStore({ name: NAMA_STORE });
   return {
     async baca<T>(k: string) {
-      return (await store.get(k, { type: "json" })) as T | null;
+      return (await denganHadMasa(store.get(k, { type: "json" }), HAD_MASA_MS, `baca ${k}`)) as T | null;
     },
     async tulis(k: string, data: unknown) {
-      await store.setJSON(k, data);
+      await denganHadMasa(store.setJSON(k, data), HAD_MASA_MS, `tulis ${k}`);
     },
   };
 }
@@ -57,6 +67,11 @@ function dapatkanStoran(): Storan {
   const guneFail = process.env.STORAN === "fail" || process.env.NODE_ENV !== "production";
   storan = guneFail ? storanFail() : storanNetlify();
   return storan;
+}
+
+/** Untuk diagnosis: jenis storan yang digunakan. */
+export function jenisStoran(): "fail" | "netlify-blobs" {
+  return process.env.STORAN === "fail" || process.env.NODE_ENV !== "production" ? "fail" : "netlify-blobs";
 }
 
 export async function bacaJSON<T>(kunci: string, lalai: T): Promise<T> {
