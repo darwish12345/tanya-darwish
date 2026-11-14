@@ -91,7 +91,7 @@ export async function janaDraf(r: RekodKerja, induk: ResumeInduk, llm?: KlienLLM
   const mentah = await tanyaJSON<Partial<DrafPermohonan>>(
     SISTEM,
     `RESUME INDUK:\n${senaraiInduk(induk)}\n\nIKLAN:\nJawatan: ${r.tajuk}\nSyarikat: ${r.syarikat}\nLokasi: ${r.lokasi}\n${r.penerangan.slice(0, 3500)}\n\nPulangkan {"ringkasan","kemahiran":[],"pengalaman":[],"poinPengalaman":{},"projek":[],"poinProjek":{},"coverLetter","subjek"}`,
-    { maxTokens: 3000, llm },
+    { maxTokens: 2200, llm },
   );
   return sahkanDraf(mentah, induk);
 }

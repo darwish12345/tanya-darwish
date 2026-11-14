@@ -26,12 +26,15 @@ export const MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
 // Model sandaran bila kuota HARIAN model utama habis (had Groq percuma dikira berasingan bagi setiap model)
 export const MODEL_SANDARAN = process.env.GROQ_MODEL_SANDARAN || "openai/gpt-oss-20b";
 
-/** Ralat 429 kerana had harian (token/permintaan sehari), bukan had seminit. */
-export function kuotaHarianHabis(e: unknown): boolean {
-  const s = (e as { status?: number }).status;
-  const m = e instanceof Error ? e.message : String(e);
-  return s === 429 && /per day|TPD|RPD/i.test(m);
+/** Ralat 429 (had seminit atau sehari). Model sandaran ada had BERASINGAN, jadi terus tukar. */
+export function kuotaHabis(e: unknown): boolean {
+  return (e as { status?: number }).status === 429;
 }
+/** @deprecated guna kuotaHabis */
+export const kuotaHarianHabis = kuotaHabis;
+
+/** Fungsi Netlify dihentikan selepas ~10 s; agent mesti siap (atau berhenti dengan sopan) sebelum itu. */
+export const BAJET_MASA_MS = Number(process.env.AGENT_BAJET_MS || 8500);
 
 export type MesejSejarah = { role: "user" | "assistant"; content: string };
 export type Langkah = { tool: string; input: string };
@@ -43,7 +46,9 @@ export type KlienLLM = {
 
 let klienLalai: Groq | null = null;
 export function klien(): KlienLLM {
-  if (!klienLalai) klienLalai = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  // Tiada cubaan semula automatik SDK: ia boleh menunggu berpuluh saat bila kena had kadar, sedangkan
+  // fungsi Netlify dihentikan selepas ~10 saat (pengguna nampak ralat 502 / bot senyap). Kita urus sendiri.
+  if (!klienLalai) klienLalai = new Groq({ apiKey: process.env.GROQ_API_KEY, maxRetries: 0, timeout: 9000 });
   return klienLalai;
 }
 
@@ -57,6 +62,7 @@ export type HasilGelung = {
   langkah: Langkah[];
   tiadaHasil: boolean; // ada carian yang tidak jumpa apa-apa
   hadDicapai: boolean;
+  kehabisanMasa?: boolean;
 };
 
 export async function jalankanGelung(opsyen: {
@@ -70,8 +76,10 @@ export async function jalankanGelung(opsyen: {
   llm?: KlienLLM;
   usahaFikir?: "low" | "medium" | "high";
   maksPusingan?: number;
+  bajetMs?: number;
 }): Promise<HasilGelung> {
-  const { systemPrompt, konteks, tools, sejarah, llm = klien(), usahaFikir = "low", maksPusingan = MAKS_PUSINGAN } = opsyen;
+  const { systemPrompt, konteks, tools, sejarah, llm = klien(), usahaFikir = "low", maksPusingan = MAKS_PUSINGAN, bajetMs = BAJET_MASA_MS } = opsyen;
+  const tamat = Date.now() + bajetMs;
   const definisi = keDefinisi(tools);
   const messages: ChatCompletionMessageParam[] = [
     { role: "system", content: systemPrompt },
@@ -88,6 +96,11 @@ export async function jalankanGelung(opsyen: {
   for (let pusingan = 0; pusingan < maksPusingan; pusingan++) {
     // ── Langkah 1: tanya LLM ───────────────────────────────────────────────
     let res: Awaited<ReturnType<KlienLLM["chat"]["completions"]["create"]>>;
+    const baki = tamat - Date.now();
+    if (baki < 1500) {
+      console.warn("[agent] Bajet masa habis selepas", langkah.length, "langkah");
+      return { teks: "", papan, kad, langkah, tiadaHasil, hadDicapai: true, kehabisanMasa: true };
+    }
     try {
       res = await llm.chat.completions.create({
         model,
@@ -99,11 +112,11 @@ export async function jalankanGelung(opsyen: {
         // Had yang terlalu rendah boleh menghasilkan jawapan kosong, jadi beri ruang.
         max_tokens: usahaFikir === "low" ? 2048 : 4096,
         ...(model.startsWith("openai/gpt-oss") ? { reasoning_effort: usahaFikir } : {}),
-      });
+      }, { timeout: baki, maxRetries: 0 });
     } catch (e) {
-      // Kuota harian model utama habis → teruskan dengan model sandaran (percuma juga)
-      if (model !== MODEL_SANDARAN && kuotaHarianHabis(e)) {
-        console.warn(`[agent] Kuota harian ${model} habis, guna ${MODEL_SANDARAN}`);
+      // Had kadar model utama → teruskan serta-merta dengan model sandaran (percuma, had berasingan)
+      if (model !== MODEL_SANDARAN && kuotaHabis(e)) {
+        console.warn(`[agent] Had kadar ${model}, guna ${MODEL_SANDARAN}`);
         model = MODEL_SANDARAN;
         pusingan--;
         continue;

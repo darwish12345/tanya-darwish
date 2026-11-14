@@ -59,7 +59,7 @@ export async function pelayanPalsu(
 type MesejLLM = { role: string; content: string | null; tool_calls?: unknown[] };
 
 /** LLM palsu: setiap panggilan memulangkan item seterusnya (objek mesej, atau fungsi yang melontar ralat). */
-export function llmPalsu(skrip: (MesejLLM | (() => never) | ((p: { messages: MesejLLM[] }) => MesejLLM))[]) {
+export function llmPalsu(skrip: (MesejLLM | (() => never) | ((p: { messages: MesejLLM[] }) => MesejLLM | Promise<MesejLLM>))[]) {
   const diterima: { messages: MesejLLM[]; tools?: { function: { name: string } }[] }[] = [];
   let i = 0;
   const llm = {
@@ -68,7 +68,7 @@ export function llmPalsu(skrip: (MesejLLM | (() => never) | ((p: { messages: Mes
         create: async (p: { messages: MesejLLM[]; tools?: { function: { name: string } }[] }) => {
           diterima.push(JSON.parse(JSON.stringify(p)));
           const item = skrip[Math.min(i++, skrip.length - 1)];
-          const mesej = typeof item === "function" ? item(p) : item;
+          const mesej = typeof item === "function" ? await item(p) : item;
           return { choices: [{ message: mesej }] };
         },
       },

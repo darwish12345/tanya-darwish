@@ -742,12 +742,13 @@
       "id": "w35",
       "agent": "web",
       "kategori": "Fakta & RAG",
-      "soalan": "Bila Darwish tamat pengajian?",
+      "soalan": "Bila Darwish boleh mula bekerja dan bila konvokesyennya?",
       "tool": [
         "cari_pengetahuan"
       ],
       "padan": [
-        "Februari 2027|Feb(ruary)? 2027"
+        "Februari 2027|Feb(ruary)? 2027",
+        "Oktober 2027|Oct(ober)? 2027"
       ]
     },
     {

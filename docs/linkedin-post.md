@@ -5,7 +5,7 @@
 
 ---
 
-Instead of sending another PDF CV, I built an AI agent that recruiters can interview about my work. 🤖
+After earning my Oracle Agentic AI Foundations Associate certificate, I wanted to actually use what I learned. So I built an AI agent that recruiters can interview about my work. 🤖
 
 It also runs my job search.
 
@@ -32,6 +32,6 @@ Stack: Next.js · TypeScript · Groq (gpt-oss-120b) · Upstash Redis & QStash ·
 Try it: https://tanya-darwish.netlify.app
 Code: https://github.com/darwish12345/tanya-darwish
 
-I'm looking for junior software engineer / AI engineer roles in Malaysia. Happy to walk you through how it works.
+My industrial training ends in February 2027 (convocation October 2027), and I'm looking for fresh graduate software engineering / AI roles in Malaysia. Happy to walk you through how it works.
 
 #AgenticAI #SoftwareEngineering #NextJS #AIEngineering #Malaysia #OpenToWork

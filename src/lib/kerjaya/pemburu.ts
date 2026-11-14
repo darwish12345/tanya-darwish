@@ -17,7 +17,7 @@ import { cariJSearch, jsearchDisetup, tapisIkutSumber, sesuaiFreshGrad, type Ikl
 import { nilaiBerkelompok } from "./padanan";
 import { simpanRekod, sudahDilihat, type RekodKerja } from "./rekod";
 
-const MAKS_DINILAI = 10;
+const MAKS_DINILAI = 6; // kecil supaya penilaian siap dalam had masa fungsi Netlify (~10 s)
 const MAKS_DIGEST = 5;
 const SKOR_MINIMUM = 40;
 

@@ -55,7 +55,7 @@ import { cariPadanan } from "@/lib/teks";
 const PROMPT_PERIBADI = `Anda pembantu peribadi Darwish di Telegram. Anggap diri anda rakan kerja yang bijak dan prihatin, bukan robot yang menunggu arahan tepat. Darwish berbual dengan anda macam berbual dengan kawan: ayatnya santai, pendek, kadang-kadang tak lengkap. Tugas anda ialah FAHAM MAKSUDNYA.
 
 TENTANG DARWISH
-Pelajar tahun akhir Ijazah Sains Komputer (Kejuruteraan Perisian) di UMT, tamat Februari 2027. Sedang menjalani latihan industri di TCS Quality and Productivity (Ogos 2026 - Januari 2027). Sedang mencari kerja FRESH GRAD / entry-level (bukan internship) bermula Februari 2027.
+Pelajar tahun akhir Ijazah Sains Komputer (Kejuruteraan Perisian) di UMT. Sedang menjalani latihan industri di TCS Quality and Productivity (Ogos 2026 - Februari 2027), iaitu komponen terakhir pengajian; konvokesyen Oktober 2027. Sedang mencari kerja FRESH GRAD / entry-level (bukan internship), boleh mula selepas latihan industri tamat (Februari 2027). Membina agent ini selepas memperoleh sijil Oracle Agentic AI Foundations Associate (Nov 2026), untuk mempraktikkan apa yang dipelajari.
 
 CARA BERFIKIR SEBELUM MEMBALAS
 1. Fahami apa yang Darwish mahu. Gunakan sejarah perbualan ("yang tu", "dua-dua", "tak jadi") dan KEADAAN SEMASA di bawah untuk tahu item mana yang dimaksudkan.
@@ -573,10 +573,21 @@ const KUMPULAN: { nama: string; tools: SebarangTool[]; kataKunci: RegExp }[] = [
   { nama: "ringkasan", tools: RINGKASAN, kataKunci: /lead|ringkasan|briefing|laporan|summary|status|apa (yang )?(perlu|patut)|hari ini/i },
 ];
 
-/** Semua kumpulan tools (dahulu ada penghala kata kunci; kini SEMUA tools sentiasa dihantar supaya
- *  agent tidak "tak faham" bila Darwish guna perkataan yang tidak dijangka. Definisi tools kekal
- *  sama setiap permintaan, jadi ia dicache oleh Groq). */
 export const SEMUA_TOOLS_PERIBADI: SebarangTool[] = [...TERAS, ...KUMPULAN.flatMap((k) => k.tools)];
+
+/**
+ * PENGHALA: had percuma Groq hanya 8K token SEMINIT, jadi kita tidak hantar semua 26 tools setiap kali.
+ * Peringatan/tugasan + keutamaan + ringkasan sentiasa ada; kumpulan lain ditambah ikut kata kunci dalam
+ * 3 mesej terakhir. Jika mesej tidak jelas topiknya, SEMUA tools dihantar supaya agent tidak "tak faham".
+ */
+export function pilihTools(teks: string): { tools: SebarangTool[]; kumpulan: string[] } {
+  const asas = ["keutamaan", "ringkasan"];
+  const padan = KUMPULAN.filter((k) => !asas.includes(k.nama) && k.kataKunci.test(teks));
+  const teras = TERAS_KATA.test(teks) || KUMPULAN.some((k) => asas.includes(k.nama) && k.kataKunci.test(teks));
+  const dipilih = padan.length || teras ? KUMPULAN.filter((k) => asas.includes(k.nama) || padan.includes(k)) : KUMPULAN;
+  return { tools: [...TERAS, ...dipilih.flatMap((k) => k.tools)], kumpulan: ["teras", ...dipilih.map((k) => k.nama)] };
+}
+const TERAS_KATA = /ingat|peringatan|reminder|remind|minit|jam|pukul|esok|lusa|tugasan|task|deadline|siap|batal|cancel|tunda|tak jadi/i;
 
 /** Jalankan agent peribadi untuk satu mesej Darwish. */
 export async function jalankanAgenPeribadi(
@@ -587,14 +598,18 @@ export async function jalankanAgenPeribadi(
   const hasil = await jalankanGelung({
     systemPrompt: PROMPT_PERIBADI,
     konteks: await binaKonteks(kini),
-    tools: SEMUA_TOOLS_PERIBADI,
+    tools: pilihTools(sejarah.slice(-3).map((m) => m.content).join("\n")).tools,
     // 12 mesej terakhir cukup untuk konteks; lebih panjang membazir had token Groq percuma
     sejarah: sejarah.slice(-12),
     llm,
-    usahaFikir: "medium", // fikir lebih sedikit: faham maksud, putuskan bila perlu bertanya
-    maksPusingan: 6,
+    usahaFikir: "low", // "medium" lebih perlahan & guna lebih token: melepasi had masa 10 s Netlify
+    maksPusingan: 5,
   });
   const namaTools = hasil.langkah.map((l) => l.tool);
+  if (hasil.kehabisanMasa) {
+    const siap = namaTools.length ? ` (sempat buat: ${[...new Set(namaTools)].join(", ")})` : "";
+    return { teks: `Maaf, saya ambil masa terlalu lama${siap}. Cuba hantar sekali lagi, atau pecahkan arahan kepada yang lebih kecil.`, papan: hasil.papan, tools: namaTools };
+  }
   if (hasil.hadDicapai) return { teks: "Maaf, saya tersangkut dengan arahan tu. Boleh terangkan sekali lagi dengan cara lain?", papan: hasil.papan, tools: namaTools };
   return { teks: hasil.teks.trim() || "Maaf, saya tak dapat menyiapkan jawapan. Cuba sekali lagi?", papan: hasil.papan, tools: namaTools };
 }

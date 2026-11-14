@@ -5,6 +5,8 @@
 
 **Live:** https://tanya-darwish.netlify.app · **Stats & eval score:** https://tanya-darwish.netlify.app/statistik
 
+> **Why it exists:** in November 2026 I earned the **Oracle Agentic AI Foundations Associate** certification. Instead of stopping at the certificate, I built this to put what I learned (agent loops, tool calling, RAG, memory, guardrails) into a real system that I use every day.
+
 One agent core, two faces:
 
 | | Public portfolio agent (web) | Personal agent (Telegram, owner only) |
@@ -129,4 +131,4 @@ Without Upstash the app stores data in `.data/`. Every optional integration (Tel
 
 ## Author
 
-Muhammad Darwish · Final-year Software Engineering student, Universiti Malaysia Terengganu (graduating Feb 2027) · open to fresh graduate roles · [GitHub](https://github.com/darwish12345) · [Live agent](https://tanya-darwish.netlify.app)
+Muhammad Darwish · Final-year Software Engineering student, Universiti Malaysia Terengganu (industrial training ends Feb 2027, convocation Oct 2027) · open to fresh graduate roles · [GitHub](https://github.com/darwish12345) · [Live agent](https://tanya-darwish.netlify.app)

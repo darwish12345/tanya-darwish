@@ -6,6 +6,12 @@
 import assert from "node:assert/strict";
 import { storanSementara, pelayanPalsu, llmPalsu, panggilTool, jawab, ralatGroq, ok, jumlahLulus } from "./bantu-ujian";
 
+function ralatGroqStatus(status: number, mesej: string): never {
+  const e = new Error(`${status} ${mesej}`) as Error & { status: number };
+  e.status = status;
+  throw e;
+}
+
 storanSementara();
 
 async function main() {
@@ -17,7 +23,7 @@ async function main() {
 
   const masa = await import("../src/lib/masa");
   const { dariMasaMY, tarikhMY, tambahHari, jamMY, selepasMinit, gabungMY, hariMingguMY } = masa;
-  const { jalankanAgenPeribadi, SEMUA_TOOLS_PERIBADI } = await import("../src/lib/agent/peribadi");
+  const { jalankanAgenPeribadi, SEMUA_TOOLS_PERIBADI, pilihTools } = await import("../src/lib/agent/peribadi");
   const data = await import("../src/lib/data");
   const { binaLaporan } = await import("../src/lib/laporan");
   const { binaBriefing } = await import("../src/lib/briefing");
@@ -126,7 +132,9 @@ async function main() {
     );
     assert.match(hasil.teks, /Indeed/);
     assert.match(String(diterima[0].messages[1].content), new RegExp(esok), "konteks mengandungi tarikh esok sebenar");
-    assert.equal(diterima[0].tools!.length, SEMUA_TOOLS_PERIBADI.length, "semua tools sentiasa dihantar");
+    const namaTools = diterima[0].tools!.map((t) => t.function.name);
+    assert.ok(namaTools.includes("catat_arahan") && namaTools.includes("tetapkan_peringatan"), "penghala memberi tools yang betul");
+    assert.ok(namaTools.length < SEMUA_TOOLS_PERIBADI.length, "tidak hantar semua tools (jimat had 8K token/minit)");
     // System prompt tetap (boleh dicache) diletak dahulu; konteks berubah selepasnya
     assert.ok(!/\d{4}-\d{2}-\d{2}/.test(String(diterima[0].messages[0].content)), "prompt tetap tiada tarikh");
   }
@@ -169,6 +177,34 @@ async function main() {
     assert.deepEqual(cari("berenang"), []);
   }
   ok("padanan rujukan bahasa biasa ('peringatan minum air tu' → Minum air)");
+
+  assert.equal(pilihTools("hmm boleh tolong tak").tools.length, SEMUA_TOOLS_PERIBADI.length, "mesej kabur → semua tools");
+  assert.ok(pilihTools("cari kerja sekarang").kumpulan.includes("kerja"));
+  assert.ok(!pilihTools("5 minit lagi ingatkan minum air").kumpulan.includes("kerja"));
+  ok("penghala: ringkas bila topik jelas, semua tools bila kabur");
+
+  console.log("Had masa & had kadar Groq");
+  {
+    // Fungsi Netlify dihentikan ~10 s: agent mesti berhenti dengan sopan, bukan senyap (pepijat bot tak balas)
+    const { jalankanGelung } = await import("../src/lib/agent/loop");
+    const lambat = llmPalsu([
+      async () => {
+        await new Promise((r) => setTimeout(r, 300));
+        return panggilTool("x", "senarai_peringatan", {});
+      },
+    ] as never);
+    const h = await jalankanGelung({ systemPrompt: "s", tools: SEMUA_TOOLS_PERIBADI, sejarah: [{ role: "user", content: "x" }], llm: lambat.llm, bajetMs: 1900 });
+    assert.equal(h.kehabisanMasa, true, "berhenti bila bajet masa habis");
+
+    // 429 (had seminit) → terus guna model sandaran, tanpa menunggu
+    const hadKadar = llmPalsu([() => ralatGroqStatus(429, "Rate limit reached ... tokens per minute (TPM)"), jawab("ok")]);
+    const t0 = Date.now();
+    const h2 = await jalankanGelung({ systemPrompt: "s", tools: [], sejarah: [{ role: "user", content: "x" }], llm: hadKadar.llm });
+    assert.equal(h2.teks, "ok");
+    assert.ok(Date.now() - t0 < 1000, "tiada menunggu");
+    assert.equal((hadKadar.diterima[1] as unknown as { model: string }).model, "openai/gpt-oss-20b", "model sandaran digunakan");
+  }
+  ok("bajet masa 10 s Netlify + tukar ke model sandaran bila kena had kadar");
 
   console.log("Tugasan & penjadual");
   {

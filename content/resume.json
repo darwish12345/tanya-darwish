@@ -1,13 +1,13 @@
 {
   "_nota": "RESUME INDUK. Agent HANYA guna fakta di sini (dan maklumat CV yang anda hantar kepada bot Telegram) untuk menjana resume khas setiap jawatan. Nilai bermula dengan TODO diabaikan. JANGAN letak emel/telefon/alamat di sini kerana repo ini awam: ia diambil dari GMAIL_USER / RESUME_TELEFON / RESUME_LOKASI di Netlify, atau dari CV yang anda hantar kepada bot.",
   "nama": "Muhammad Darwish Bin Khairul Asraf",
-  "tajuk": "Software Engineering Graduate (Feb 2027) | Java & Web Developer | Agentic AI",
+  "tajuk": "Final-year Software Engineering Student | Java & Web Developer | Agentic AI",
   "pautan": {
     "github": "https://github.com/darwish12345",
     "portfolio": "https://tanya-darwish.netlify.app",
     "linkedin": "https://www.linkedin.com/in/darwish-asraf-3268712a8"
   },
-  "ringkasan": "Final-year Bachelor of Computer Science (Software Engineering) student at Universiti Malaysia Terengganu, graduating February 2027, currently completing industrial training at TCS Quality and Productivity. Builds web applications with Java (JSP/Servlet, MVC) and MySQL, and designed, built and deployed Tanya Darwish, an agentic AI assistant with a hand-written agent loop, tool calling, retrieval (RAG) and a Telegram personal agent. Seeking a fresh graduate software engineering role.",
+  "ringkasan": "Final-year Bachelor of Computer Science (Software Engineering) student at Universiti Malaysia Terengganu, completing industrial training at TCS Quality and Productivity (ends February 2027; convocation October 2027). Builds web applications with Java (JSP/Servlet, MVC) and MySQL. After earning the Oracle Agentic AI Foundations Associate certification, applied it by designing, building and deploying Tanya Darwish, an agentic AI assistant with a hand-written agent loop, tool calling, retrieval (RAG) and a Telegram personal agent. Seeking a fresh graduate software engineering role from February 2027.",
   "kemahiran": {
     "Languages": [
       "Java",
@@ -62,7 +62,7 @@
     {
       "tajuk": "Software Engineering Intern (Industrial Training)",
       "organisasi": "TCS Quality and Productivity Sdn Bhd",
-      "tempoh": "Aug 2026 - Jan 2027",
+      "tempoh": "Aug 2026 - Feb 2027",
       "poin": [
         "TODO: tugas dan pencapaian sebenar semasa latihan industri (versi yang tidak sulit)"
       ]
@@ -110,7 +110,7 @@
     {
       "kelayakan": "Bachelor of Computer Science (Software Engineering) with Honours",
       "institusi": "Universiti Malaysia Terengganu",
-      "tempoh": "Oct 2023 - Feb 2027",
+      "tempoh": "Oct 2023 - Feb 2027 (convocation Oct 2027)",
       "nota": "Current CGPA 3.28. Coursework: Programming, OOP, Web Development, Database, Software Testing, Data Analytics, IoT, Intelligent Systems, Cybersecurity"
     },
     {

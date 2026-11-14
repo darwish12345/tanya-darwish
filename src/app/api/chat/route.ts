@@ -67,12 +67,14 @@ export async function POST(req: Request) {
   }
 }
 
-/** Model kadang-kadang menjana panggilan tool yang rosak (ralat 400). Cuba sekali lagi. */
+/** Model kadang-kadang menjana panggilan tool yang rosak (ralat 400). Cuba sekali lagi HANYA jika ia
+ *  gagal dengan cepat; fungsi Netlify dihentikan selepas ~10 s. */
 async function jalankanAgentDenganCubaSemula(sejarah: Parameters<typeof jalankanAgent>[0]) {
+  const mula = Date.now();
   try {
     return await jalankanAgent(sejarah);
   } catch (e) {
-    if (e instanceof Groq.APIError && e.status === 400) return await jalankanAgent(sejarah);
+    if (e instanceof Groq.APIError && e.status === 400 && Date.now() - mula < 3000) return await jalankanAgent(sejarah);
     throw e;
   }
 }

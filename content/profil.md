@@ -9,17 +9,17 @@ CARA GUNA FAIL INI
 
 ## Ringkasan
 
-Muhammad Darwish Bin Khairul Asraf (Darwish) ialah pelajar tahun akhir Ijazah Sarjana Muda Sains Komputer (Kejuruteraan Perisian) di Universiti Malaysia Terengganu (UMT), dijangka tamat pada Februari 2027. Dia sedang menjalani latihan industri sebagai pelatih Software Engineering di TCS Quality and Productivity Sdn Bhd. Dia membina aplikasi web dengan Java (JSP/Servlet) dan MySQL, dan berminat dalam agentic AI. Projek terbesarnya ialah Tanya Darwish, agent AI yang dia reka, bina dan deploy sendiri.
+Muhammad Darwish Bin Khairul Asraf (Darwish) ialah pelajar tahun akhir Ijazah Sarjana Muda Sains Komputer (Kejuruteraan Perisian) di Universiti Malaysia Terengganu (UMT). Dia sedang menjalani latihan industri, iaitu komponen terakhir pengajiannya, sebagai pelatih Software Engineering di TCS Quality and Productivity Sdn Bhd sehingga Februari 2027. Konvokesyennya pada Oktober 2027. Dia membina aplikasi web dengan Java (JSP/Servlet) dan MySQL, dan berminat dalam agentic AI. Selepas memperoleh sijil Oracle Agentic AI Foundations Associate pada November 2026, Darwish mempraktikkan apa yang dipelajarinya dengan membina Tanya Darwish, agent AI yang dia reka dan deploy bersama Claude sebagai pair programmer.
 
 ## Pendidikan
 
-- Ijazah Sarjana Muda Sains Komputer (Kejuruteraan Perisian) dengan Kepujian, Universiti Malaysia Terengganu, Oktober 2023 hingga Februari 2027. CGPA semasa: 3.28.
+- Ijazah Sarjana Muda Sains Komputer (Kejuruteraan Perisian) dengan Kepujian, Universiti Malaysia Terengganu, Oktober 2023 hingga Februari 2027 (konvokesyen Oktober 2027). CGPA semasa: 3.28.
 - Kursus berkaitan: Pengaturcaraan, OOP, Pembangunan Web, Pangkalan Data, Pengujian Perisian, Analitik Data, IoT, Sistem Pintar dan Keselamatan Siber.
 - Asasi STEM, Universiti Malaysia Terengganu, Oktober 2022 hingga Februari 2023.
 
 ## Pengalaman latihan industri
 
-Darwish menjalani latihan industri sebagai pelatih Software Engineering di TCS Quality and Productivity Sdn Bhd dari 2 Ogos 2026 hingga 14 Januari 2027.
+Darwish menjalani latihan industri sebagai pelatih Software Engineering di TCS Quality and Productivity Sdn Bhd dari Ogos 2026 hingga Februari 2027.
 
 TODO: Senaraikan tugas utama dan pencapaian (versi yang tidak sulit, selepas dapat kebenaran supervisor).
 
@@ -38,7 +38,7 @@ Penyelesaian masalah, pemikiran analitikal, pengurusan masa, kerja berpasukan da
 
 ## Matlamat kerjaya
 
-Darwish mencari jawatan fresh graduate atau entry-level bermula Februari 2027, selepas tamat pengajian: Junior Software Engineer (termasuk Java Developer), Web atau Full-stack Developer, AI Engineer atau AI Developer, dan Software Tester atau QA. Dia terbuka untuk bekerja di seluruh Malaysia. Darwish tidak lagi mencari latihan industri.
+Darwish mencari jawatan fresh graduate atau entry-level dan boleh mula bekerja selepas latihan industri tamat pada Februari 2027 (konvokesyen Oktober 2027): Junior Software Engineer (termasuk Java Developer), Web atau Full-stack Developer, AI Engineer atau AI Developer, dan Software Tester atau QA. Dia terbuka untuk bekerja di seluruh Malaysia. Darwish tidak lagi mencari latihan industri.
 
 ## Hubungi
 
