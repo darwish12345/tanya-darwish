@@ -49,6 +49,20 @@ flowchart LR
 
 **How one answer is produced** (`src/lib/agent/loop.ts`): the LLM receives the conversation plus tool definitions (zod schemas converted to JSON Schema) → it either answers or requests tools → the code validates the arguments and runs them → results go back to the LLM → repeat (max 5 rounds). If the model invents a tool name (Groq returns `400 tool_use_failed`), the loop tells it the valid names and retries; it recovers on its own.
 
+## How this was built (AI-assisted, and proud of it)
+
+I built this project together with **Claude** (Anthropic's AI assistant) as my pair programmer. I want to be upfront about that: using AI tools well is part of how modern software is made, and I'd rather show how I work than hide it.
+
+| My part | Claude's part |
+|---|---|
+| Chose the problem and decided what the agent should do for me and for recruiters | Wrote most of the code, tests and documentation from my requirements |
+| Made the product decisions: RM0 stack, human approval before any email, fresh-grad focus, which projects to show | Proposed architectures and explained the trade-offs so I could choose |
+| Used it every day for real, and reported the bugs I hit (with transcripts) | Diagnosed those bugs, fixed them and added a regression test for each |
+| Set up and operate every service: Netlify, Upstash, Telegram, Google Cloud, Gmail, GitHub Actions | Taught me the concepts behind them (agent loops, RAG, queues, JWT, prompt injection) |
+| Decided what shipped and when to deploy | |
+
+Commits written with Claude carry a `Co-Authored-By: Claude` trailer, so the history shows exactly this. What I take away from it: how agentic systems are structured, how to break a big goal into phases, how to test and evaluate an LLM system, and how to direct an AI collaborator with clear requirements and real-world feedback.
+
 ## Engineering decisions
 
 | Decision | Why |

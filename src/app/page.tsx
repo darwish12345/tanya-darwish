@@ -17,6 +17,7 @@ const SENIBINA = [
   ["Memori & kerja latar", "Upstash Redis + QStash (peringatan tepat pada minit)"],
   ["Kualiti", "Guardrails, ujian regresi, eval automatik di GitHub Actions"],
   ["Kos", "RM0 sebulan (semua peringkat percuma)"],
+  ["Cara dibina", "Bersama Claude (AI) sebagai pair programmer: Darwish menentukan ciri, menguji setiap hari dan mengendalikan sistem; Claude menulis kebanyakan kod"],
 ];
 
 export default function Home() {

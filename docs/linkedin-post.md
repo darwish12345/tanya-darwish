@@ -25,6 +25,8 @@ What I learned building it as an intern:
 3️⃣ Measure it. 62 automated eval cases run against the real model in GitHub Actions. Current score: [X%].
 4️⃣ Keep humans in control of anything irreversible.
 
+Full transparency: I built it with Claude (AI) as my pair programmer. I decided what to build, used it daily, found the bugs and ran the infrastructure; Claude wrote most of the code and taught me the concepts along the way. Knowing how to direct AI well is a skill I want to bring to my first role.
+
 Stack: Next.js · TypeScript · Groq (gpt-oss-120b) · Upstash Redis & QStash · Telegram Bot API · Netlify. Running cost: RM0/month.
 
 Try it: https://tanya-darwish.netlify.app
