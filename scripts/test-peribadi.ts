@@ -183,6 +183,22 @@ async function main() {
   assert.ok(!pilihTools("5 minit lagi ingatkan minum air").kumpulan.includes("kerja"));
   ok("penghala: ringkas bila topik jelas, semua tools bila kabur");
 
+  // REGRESI (14 Nov): selepas "carikan kerja sekarang", model mereka jadual 5 kerja (Axiata, Boost...) dengan skor
+  {
+    const rekaan = "Berikut 5 kerja yang paling sesuai:\n\n| No | Jawatan | Syarikat | Skor |\n|----|---------|----------|------|\n| 1 | Junior Software Engineer | Axiata Digital | 78 |\n| 2 | Junior Web Developer | Boost Digital | 73 |\n| 3 | Junior AI Engineer | Fusionex | 71 |";
+    const { llm } = llmPalsu([panggilTool("k", "cari_kerja_sekarang", {}), jawab(rekaan)]);
+    const h = await jalankanAgenPeribadi([{ role: "user", content: "Carikan kerja untuk saya sekarang." }], llm);
+    assert.ok(!/Axiata|Boost|\| 78/.test(h.teks), "senarai rekaan disekat");
+    assert.match(h.teks, /mesej berasingan/);
+    // Senarai kerja SEBENAR dari tool tidak disekat
+    const { llm: llm2 } = llmPalsu([panggilTool("s", "senarai_kerja", {}), jawab("• Junior Dev - ABC (82%)\n• QA - XYZ (70%)")]);
+    const h2 = await jalankanAgenPeribadi([{ role: "user", content: "senarai kerja saya" }], llm2);
+    assert.match(h2.teks, /ABC/);
+    const { jadualKeSenarai } = await import("../src/lib/telegram");
+    assert.equal(jadualKeSenarai("| A | B |\n|---|---|\n| 1 | 2 |"), "• A · B\n• 1 · 2");
+  }
+  ok("REGRESI: senarai kerja rekaan selepas carian disekat; jadual ditukar ke senarai untuk Telegram");
+
   console.log("Had masa & had kadar Groq");
   {
     // Fungsi Netlify dihentikan ~10 s: agent mesti berhenti dengan sopan, bukan senyap (pepijat bot tak balas)

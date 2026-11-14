@@ -63,13 +63,14 @@ CARA BERFIKIR SEBELUM MEMBALAS
 3. Jika kabur DAN salah teka boleh menyusahkan (padam sesuatu, ubah tetapan kekal, masa tidak jelas, lebih daripada satu item sepadan) → tanya SATU soalan ringkas dengan pilihan konkrit. Contoh: "Nak batal yang mana: **minum air 3:00 ptg** atau **minum air 9:00 mlm**?"
 4. Jika perkara kecil yang jelas jawapannya, jangan tanya, buat sahaja.
 5. Jika tool gagal atau tiada padanan, jangan terus menyerah: semak KEADAAN SEMASA, cuba kata kunci lain sekali, kemudian terangkan dengan bahasa mudah dan tanya.
-6. Bila berguna, cadangkan satu langkah seterusnya dalam satu ayat (contoh selepas carian kerja: "Nak saya sediakan resume untuk yang paling tinggi skor?").
+6. Bila berguna, cadangkan satu langkah seterusnya dalam satu ayat.
 
 LARANGAN
 - JANGAN sekali-kali minta Darwish beri ID, dan jangan tunjuk ID kepada Darwish. Rujuk item dengan nama dan masanya. Tools menerima kata kunci biasa (contoh rujukan "linkedin", "air", "slide").
 - Jangan kata sesuatu sudah dibuat jika tool tidak dipanggil atau memulangkan ralat.
 - Anda TIDAK boleh menghantar emel. Permohonan hanya dihantar bila Darwish tekan butang "Hantar".
 - Jangan reka maklumat. Jika ciri belum disetup, beritahu dengan jujur.
+- JANGAN sekali-kali senaraikan kerja, syarikat, skor, acara atau data lain yang TIDAK datang daripada hasil tool dalam giliran ini. Carian kerja berjalan di latar belakang: selepas cari_kerja_sekarang, cuma sahkan carian dimulakan dan beritahu keputusan akan sampai sebagai mesej berasingan. Untuk melihat kerja yang sudah ada, panggil senarai_kerja.
 
 PERATURAN MASA
 - "X minit/jam lagi" → medan selepas_minit (5 minit = 5, 2 jam = 120). JANGAN kira masa sendiri.
@@ -367,7 +368,12 @@ const KERJA: SebarangTool[] = [
       if (!jsearchDisetup()) return { untukLLM: { status: "belum disetup", nota: "JSEARCH_API_KEY belum ditetapkan di Netlify." } };
       if (qstashDisetup()) {
         await jadualkan("cari-kerja", { paksa: true });
-        return { untukLLM: { status: "dimulakan", nota: "Keputusan akan dihantar dalam 1-2 minit." } };
+        return {
+          untukLLM: {
+            status: "dimulakan di latar belakang",
+            nota: "Keputusan BELUM ada. Ia akan dihantar sebagai mesej berasingan dalam 1-2 minit. JANGAN senaraikan atau teka sebarang kerja sekarang; cuma sahkan carian dimulakan.",
+          },
+        };
       }
       return { untukLLM: { status: await mulaCarian() } };
     },
@@ -606,10 +612,34 @@ export async function jalankanAgenPeribadi(
     maksPusingan: 5,
   });
   const namaTools = hasil.langkah.map((l) => l.tool);
+  // Pelindung anti-reka: model pernah "mereka" senarai kerja (syarikat + skor) selepas carian dimulakan
+  // di latar belakang. Jika jawapan kelihatan seperti senarai kerja tetapi tiada tool yang memulangkan
+  // senarai kerja dalam giliran ini, gantikan dengan jawapan selamat.
+  if (nampakSenaraiKerjaRekaan(hasil.teks, namaTools)) {
+    console.warn("[peribadi] Senarai kerja rekaan disekat");
+    const dimulakan = namaTools.includes("cari_kerja_sekarang");
+    return {
+      teks: dimulakan
+        ? "🔎 Carian kerja sudah dimulakan. Keputusan sebenar (dengan skor & butang) akan sampai sebagai mesej berasingan dalam 1-2 minit."
+        : "Saya tiada senarai kerja terkini untuk ditunjukkan sekarang. Nak saya **cari kerja sekarang**, atau tunjuk **senarai permohonan** yang sudah ada?",
+      papan: hasil.papan,
+      tools: namaTools,
+    };
+  }
   if (hasil.kehabisanMasa) {
     const siap = namaTools.length ? ` (sempat buat: ${[...new Set(namaTools)].join(", ")})` : "";
     return { teks: `Maaf, saya ambil masa terlalu lama${siap}. Cuba hantar sekali lagi, atau pecahkan arahan kepada yang lebih kecil.`, papan: hasil.papan, tools: namaTools };
   }
   if (hasil.hadDicapai) return { teks: "Maaf, saya tersangkut dengan arahan tu. Boleh terangkan sekali lagi dengan cara lain?", papan: hasil.papan, tools: namaTools };
   return { teks: hasil.teks.trim() || "Maaf, saya tak dapat menyiapkan jawapan. Cuba sekali lagi?", papan: hasil.papan, tools: namaTools };
+}
+
+const TOOL_SENARAI_KERJA = new Set(["senarai_kerja", "kemas_kini_permohonan", "sediakan_permohonan", "tetapkan_emel_hr"]);
+/** Jadual / senarai beberapa kerja dengan skor, tanpa tool yang membekalkan data kerja. */
+export function nampakSenaraiKerjaRekaan(teks: string, tools: string[]): boolean {
+  if (tools.some((t) => TOOL_SENARAI_KERJA.has(t))) return false;
+  const barisJadual = teks.split("\n").filter((b) => /^\s*\|.*\|\s*$/.test(b)).length;
+  const sebutSkor = (teks.match(/\b\d{2,3}\s*(%|\/\s*100)|skor\s*:?\s*\d{2}|\|\s*\d{2,3}\s*\|/gi) ?? []).length;
+  const sebutKerja = /jawatan|syarikat|junior|engineer|developer|kerja/i.test(teks);
+  return sebutKerja && (barisJadual >= 3 || sebutSkor >= 2);
 }

@@ -14,7 +14,7 @@ engineer nampak kualiti kejuruteraannya pada minit terakhir.
 | 0:55–1:10 | Klik **Tempah interview**, pilih slot | "And it can book an interview straight into my Google Calendar." |
 | 1:10–1:30 | Telegram: hantar voice note "Esok pukul 7 pagi ingatkan saya interview, dan esok jangan cari kerja di LinkedIn" | "On Telegram it's my personal agent. It understands voice notes, sets a reminder for exactly 7 a.m. Malaysia time, and knows that 'tomorrow skip LinkedIn' is for tomorrow only." |
 | 1:30–1:55 | Telegram: digest kerja pagi → tekan **Sediakan permohonan** → 2 PDF muncul → tunjuk butang **Hantar** | "Every morning it searches Indeed and LinkedIn, scores each job against my profile, and drafts a tailored ATS resume and cover letter. Nothing is sent until I press Send." |
-| 1:55–2:15 | Halaman **/statistik**, kemudian `evals/laporan-terkini.md` di GitHub | "I treat it like production software: 62 automated eval cases with a real LLM, regression tests for every bug I found, and CI on every push." |
+| 1:55–2:15 | Halaman **/statistik**, kemudian `evals/laporan-terkini.md` di GitHub | "I treat it like production software: 63 automated eval cases with a real LLM, regression tests for every bug I found, and CI on every push." |
 | 2:15–2:30 | Bahagian **Di sebalik tabir** | "It's a hand-written agent loop on a serverless stack that costs zero ringgit a month. I built it with Claude as my AI pair programmer: I decided the features, tested it every day and run the system. The live agent and the code are linked below. Thanks for watching!" |
 
 **Tips:** rakam setiap bahagian berasingan dan cantum (CapCut / Clipchamp, percuma). Besarkan fon pelayar ke 125%.

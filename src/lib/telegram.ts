@@ -38,8 +38,17 @@ function kePapanTelegram(papan?: Papan) {
 }
 
 /** Tukar Markdown ringkas dari LLM (**tebal**) kepada HTML Telegram yang selamat. */
+/** Telegram tidak memaparkan jadual Markdown: tukar setiap baris jadual kepada baris senarai. */
+export function jadualKeSenarai(teks: string): string {
+  return teks
+    .split("\n")
+    .filter((b) => !/^\s*\|?\s*:?-{2,}/.test(b)) // baris pemisah |---|---|
+    .map((b) => (/^\s*\|.*\|\s*$/.test(b) ? `• ${b.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim()).filter(Boolean).join(" · ")}` : b))
+    .join("\n");
+}
+
 export function keHtmlTelegram(teks: string): string {
-  const selamat = teks.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const selamat = jadualKeSenarai(teks).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   return selamat
     .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
     .replace(/(^|\s)_(.+?)_(?=\s|$)/g, "$1<i>$2</i>")
