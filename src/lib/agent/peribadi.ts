@@ -375,7 +375,7 @@ const KERJA: SebarangTool[] = [
           },
         };
       }
-      return { untukLLM: { status: await mulaCarian() } };
+      return { untukLLM: { status: await mulaCarian(new Date(), undefined, { manual: true }), nota: "Keputusan sudah dihantar sebagai mesej berasingan. JANGAN senaraikan kerja dalam jawapan ini." } };
     },
   }),
   buatTool({

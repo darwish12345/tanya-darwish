@@ -46,6 +46,8 @@ const IKLAN_JSEARCH = [
 async function main() {
   const pertanyaanJSearch: string[] = [];
   const keperluanJSearch: string[] = [];
+  const tempohJSearch: string[] = [];
+  let ralatJSearch = false;
   // Kalendar Google palsu: sahkan tandatangan JWT (RS256) dengan kunci awam sebenar
   const { generateKeyPairSync, createVerify } = await import("node:crypto");
   const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -53,9 +55,11 @@ async function main() {
   let sibuk: { start: string; end: string }[] = [];
   const tg = await pelayanPalsu({
     "/search": (url) => {
+      if (ralatJSearch) return { _status: 403, message: "You have exceeded the MONTHLY quota" };
       pertanyaanJSearch.push(url.searchParams.get("query") ?? "");
       keperluanJSearch.push(url.searchParams.get("job_requirements") ?? "");
-      return { status: "OK", data: IKLAN_JSEARCH };
+      tempohJSearch.push(url.searchParams.get("date_posted") ?? "");
+      return { status: "OK", data: IKLAN_JSEARCH.map((j, i) => ({ ...j, job_posted_at_datetime_utc: new Date(Date.now() - (i + 2) * 86400_000).toISOString() })) };
     },
     "/token": (_u, badan) => {
       const jwt = new URLSearchParams(badan).get("assertion") ?? "";
@@ -79,7 +83,6 @@ async function main() {
   process.env.JSEARCH_BASE = tg.asas;
 
   const { normalkan, tapisIkutSumber, cariJSearch, idKerja } = await import("../src/lib/kerjaya/jsearch");
-  const { cariSatuJawatan, nilaiDanHantar } = await import("../src/lib/kerjaya/pemburu");
   const { sahkanDraf, binaResumeKhas, sediakanPermohonan, hantarPermohonan } = await import("../src/lib/kerjaya/permohonan");
   const { bacaResumeInduk } = await import("../src/lib/kerjaya/profil");
   const { janaResumePDF, janaCoverLetterPDF } = await import("../src/lib/kerjaya/pdf");
@@ -127,32 +130,32 @@ async function main() {
   ok("penapis fresh grad (buang intern/senior/3+ tahun) + migrasi tetapan lama");
 
   console.log("Pemburu kerja → digest Telegram");
+  const { tulisJSON } = await import("../src/lib/store");
+  const { mulaCarian, umurIklan } = await import("../src/lib/kerjaya/pemburu");
   const tarikh = tarikhMY();
   await data.tambahArahan({ tarikh, jenis: "langkau_sumber", sumber: ["LinkedIn"], arahan: "Jangan cari di LinkedIn hari ini" });
-  const { sumber, sebab } = await data.sumberBerkuatKuasa(tarikh);
-  const { tulisJSON } = await import("../src/lib/store");
-  await tulisJSON(`kerja-calon-${tarikh}`, { sumber, sebab, calon: [] });
-  assert.equal(await cariSatuJawatan("Junior Software Engineer", tarikh), 2, "DEF (LinkedIn sahaja) ditapis keluar");
-  assert.equal(await cariSatuJawatan("AI Engineer", tarikh), 2, "carian kedua: calon sama tidak digandakan");
+  const nilai = () =>
+    llmPalsu([
+      jawab(
+        JSON.stringify({
+          penilaian: [
+            { id: idKerja("abc-1"), skor: 86, sebab: "Padan dengan TypeScript & Next.js", padan: ["TypeScript", "Next.js"], kurang: [] },
+            { id: idKerja("ghi-3"), skor: 72, sebab: "Pengalaman RAG relevan", padan: ["RAG"], kurang: ["Python"] },
+          ],
+        }),
+      ),
+    ]);
+  let sebelumHantar = tg.panggilan.length;
+  assert.equal(await mulaCarian(new Date(), nilai().llm), "selesai");
+  assert.equal(pertanyaanJSearch.length - 1, 4, "4 jawatan dicari");
   assert.match(pertanyaanJSearch[1], /Junior Software Engineer in Malaysia/);
-  assert.equal(keperluanJSearch[1], "under_3_years_experience,no_experience", "JSearch ditapis untuk fresh grad");
-
-  const { llm: llmNilai } = llmPalsu([
-    jawab(
-      JSON.stringify({
-        penilaian: [
-          { id: idKerja("abc-1"), skor: 86, sebab: "Padan dengan TypeScript & Next.js", padan: ["TypeScript", "Next.js"], kurang: [] },
-          { id: idKerja("ghi-3"), skor: 72, sebab: "Pengalaman RAG relevan", padan: ["RAG"], kurang: ["Python"] },
-        ],
-      }),
-    ),
-  ]);
-  const sebelumHantar = tg.panggilan.length;
-  assert.equal(await nilaiDanHantar(tarikh, llmNilai), 2);
-  const digest = tg.panggilan.slice(sebelumHantar).filter((x) => x.kaedah === "sendMessage");
-  assert.equal(digest.length, 3, "1 ringkasan + 2 kad kerja");
+  assert.equal(tempohJSearch.at(-1), "month", "tidak terhad kepada iklan hari ini");
+  assert.equal(keperluanJSearch.at(-1), "", "tiada penapis job_requirements yang terlalu ketat");
+  let digest = tg.panggilan.slice(sebelumHantar).filter((x) => x.kaedah === "sendMessage");
+  assert.equal(digest.length, 3, "1 ringkasan + 2 kad kerja (pendua dari 4 carian dibuang)");
   assert.match(String(digest[0].badan?.text), /Jangan cari di LinkedIn/, "arahan hari ini dinyatakan");
   assert.match(String(digest[1].badan?.text), /86%/);
+  assert.match(String(digest[1].badan?.text), /📅 (\d+ hari lalu|semalam|hari ini)/, "tarikh siar dipaparkan");
   const butang = (digest[1].badan as { reply_markup: { inline_keyboard: { callback_data?: string; url?: string }[][] } }).reply_markup.inline_keyboard;
   assert.equal(butang[0][0].callback_data, `k:mohon:${idKerja("abc-1")}`);
   assert.equal(butang[1][0].url, "https://indeed.example/abc");
@@ -161,16 +164,33 @@ async function main() {
   assert.equal(rekod?.status, "baru");
   assert.equal(rekod?.emelHR, "hr@abctech.example");
   assert.equal((await cariRekod("ABC")).length, 1);
-  ok("pemburu: tapis, nilai, simpan rekod, hantar kad dengan butang");
+  ok("pemburu: 4 jawatan, tapis, buang pendua, nilai, simpan rekod, kad dengan tarikh siar & butang");
 
-  // Penilaian AI gagal → iklan tetap dipaparkan tanpa skor
-  await tulisJSON(`kerja-calon-${tarikh}`, { sumber: [], sebab: [], calon: [normalkan({ ...IKLAN_JSEARCH[1], job_id: "zzz" })] });
-  const gagal = llmPalsu([() => {
-    throw new Error("429 rate limit");
-  }]);
-  assert.equal(await nilaiDanHantar(tarikh, gagal.llm), 1);
-  assert.match(String(tg.panggilan.filter((x) => x.kaedah === "sendMessage").at(-2)?.badan?.text), /tanpa skor/);
-  ok("penilaian AI gagal → iklan tetap dihantar tanpa skor");
+  // Carian AUTOMATIK kedua: iklan yang sama sudah dihantar → tiada, dengan SEBAB dan angka sebenar
+  sebelumHantar = tg.panggilan.length;
+  await mulaCarian(new Date(), nilai().llm);
+  digest = tg.panggilan.slice(sebelumHantar).filter((x) => x.kaedah === "sendMessage");
+  assert.equal(digest.length, 1);
+  assert.match(String(digest[0].badan?.text), /sudah ditunjukkan sebelum ini/, "sebab kosong diterangkan");
+  assert.match(String(digest[0].badan?.text), /bukan dari/);
+  // Carian MANUAL: iklan yang pernah dilihat dipaparkan semula (guna skor lama, tanpa panggil AI)
+  sebelumHantar = tg.panggilan.length;
+  const tiadaAI = llmPalsu([() => { throw new Error("AI tidak sepatutnya dipanggil"); }]);
+  await mulaCarian(new Date(), tiadaAI.llm, { manual: true });
+  digest = tg.panggilan.slice(sebelumHantar).filter((x) => x.kaedah === "sendMessage");
+  assert.equal(digest.length, 3, "carian manual memaparkan semula kerja yang sesuai");
+  assert.equal(tiadaAI.diterima.length, 0, "skor lama digunakan semula");
+  assert.equal(umurIklan(new Date(Date.now() - 3 * 86400_000).toISOString()), "3 hari lalu");
+  ok("carian automatik hanya iklan baru (dengan sebab bila kosong); carian manual papar semula");
+
+  // Ralat JSearch dilaporkan dengan jujur (dahulu disembunyikan sebagai "tiada iklan")
+  ralatJSearch = true;
+  sebelumHantar = tg.panggilan.length;
+  await mulaCarian(new Date(), nilai().llm, { manual: true });
+  ralatJSearch = false;
+  digest = tg.panggilan.slice(sebelumHantar).filter((x) => x.kaedah === "sendMessage");
+  assert.match(String(digest.at(-1)?.badan?.text), /Carian gagal untuk 4\/4 jawatan/);
+  ok("ralat JSearch dilaporkan, bukan disembunyikan");
 
   console.log("Resume & cover letter (anti-reka)");
   const induk = await bacaResumeInduk();

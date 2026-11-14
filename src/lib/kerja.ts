@@ -27,9 +27,9 @@ const s = (v: unknown) => String(v ?? "");
 
 export const KERJA_LATAR: Record<string, (d: Data) => Promise<unknown>> = {
   "hantar-peringatan": (d) => hantarPeringatan(s(d.id)),
-  "cari-kerja": () => mulaCarian(),
-  "cari-kerja-jawatan": (d) => cariSatuJawatan(s(d.jawatan), s(d.tarikh)),
-  "nilai-kerja": (d) => nilaiDanHantar(s(d.tarikh)),
+  "cari-kerja": (d) => mulaCarian(new Date(), undefined, { manual: Boolean(d.paksa) }),
+  "cari-kerja-jawatan": (d) => cariSatuJawatan(s(d.jawatan), s(d.larian)),
+  "nilai-kerja": (d) => nilaiDanHantar(s(d.larian)),
   "sediakan-permohonan": async (d) => {
     try {
       return await sediakanPermohonan(s(d.id));
